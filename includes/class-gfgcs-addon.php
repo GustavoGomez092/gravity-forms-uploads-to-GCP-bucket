@@ -154,6 +154,69 @@ class GFGCS_Addon extends GFAddOn {
         GFGCS_Settings::update_global( $patch );
     }
 
+    public function form_settings_fields( $form ) {
+        return array(
+            array(
+                'title'  => esc_html__( 'GCS Storage Overrides', 'gf-gcs-uploads' ),
+                'fields' => array(
+                    array(
+                        'name'    => 'override_bucket',
+                        'label'   => esc_html__( 'Override default bucket', 'gf-gcs-uploads' ),
+                        'type'    => 'checkbox',
+                        'choices' => array( array( 'name' => 'override_bucket', 'label' => esc_html__( 'Yes', 'gf-gcs-uploads' ) ) ),
+                    ),
+                    array(
+                        'name'       => 'bucket_override',
+                        'label'      => esc_html__( 'Bucket', 'gf-gcs-uploads' ),
+                        'type'       => 'text',
+                        'class'      => 'medium',
+                        'dependency' => 'override_bucket',
+                    ),
+                    array(
+                        'name'    => 'override_prefix',
+                        'label'   => esc_html__( 'Override default object prefix', 'gf-gcs-uploads' ),
+                        'type'    => 'checkbox',
+                        'choices' => array( array( 'name' => 'override_prefix', 'label' => esc_html__( 'Yes', 'gf-gcs-uploads' ) ) ),
+                    ),
+                    array(
+                        'name'       => 'prefix_override',
+                        'label'      => esc_html__( 'Prefix', 'gf-gcs-uploads' ),
+                        'type'       => 'text',
+                        'class'      => 'medium',
+                        'dependency' => 'override_prefix',
+                        'tooltip'    => esc_html__( 'Tokens: {form_title}, {form_id}, {Y}, {m}, {d}, {submission_uuid}. Plugin auto-appends <field_id>/<file_uuid>/<filename>.', 'gf-gcs-uploads' ),
+                    ),
+                    array(
+                        'name'    => 'override_size',
+                        'label'   => esc_html__( 'Override default max file size', 'gf-gcs-uploads' ),
+                        'type'    => 'checkbox',
+                        'choices' => array( array( 'name' => 'override_size', 'label' => esc_html__( 'Yes', 'gf-gcs-uploads' ) ) ),
+                    ),
+                    array(
+                        'name'       => 'max_size_mb',
+                        'label'      => esc_html__( 'Max size (MB)', 'gf-gcs-uploads' ),
+                        'type'       => 'text',
+                        'class'      => 'small',
+                        'dependency' => 'override_size',
+                    ),
+                    array(
+                        'name'    => 'override_mimes',
+                        'label'   => esc_html__( 'Override default allowed MIME types', 'gf-gcs-uploads' ),
+                        'type'    => 'checkbox',
+                        'choices' => array( array( 'name' => 'override_mimes', 'label' => esc_html__( 'Yes', 'gf-gcs-uploads' ) ) ),
+                    ),
+                    array(
+                        'name'       => 'allowed_mimes',
+                        'label'      => esc_html__( 'Allowed MIMEs', 'gf-gcs-uploads' ),
+                        'type'       => 'text',
+                        'class'      => 'medium',
+                        'dependency' => 'override_mimes',
+                    ),
+                ),
+            ),
+        );
+    }
+
     public function enqueue_admin_assets( $hook ) {
         if ( strpos( (string) $hook, 'gf_settings' ) === false ) {
             return;
