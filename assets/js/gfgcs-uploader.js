@@ -117,16 +117,6 @@ export class GFGCSUploader {
         return li;
     }
 
-    _removeRow(li) {
-        const idx = Array.from(this.list.children).indexOf(li);
-        if (idx < 0) return;
-        const entry = this.files[idx];
-        if (entry && entry.controller) entry.controller.abort();
-        if (entry) entry.state = 'removed';
-        li.remove();
-        this.files.splice(idx, 1);
-        this._refreshHidden();
-    }
 
     _watchForm(form) {
         const submit = form.querySelector('input[type=submit], button[type=submit]');
@@ -320,6 +310,23 @@ GFGCSUploader.prototype._fail = function (entry, err) {
     entry.error = err;
     entry.row.classList.add('is-error');
     entry.row.querySelector('.gfgcs-status').textContent = (err && err.message) || 'Upload failed';
+    this._refreshHidden();
+};
+
+GFGCSUploader.prototype._removeRow = function (li) {
+    const idx = Array.from(this.list.children).indexOf(li);
+    if (idx < 0) return;
+    const entry = this.files[idx];
+    if (entry) {
+        if (entry.controller) entry.controller.abort();
+        if (entry.sessionUri && entry.state !== 'done') {
+            // Fire-and-forget DELETE to release the partial session.
+            fetch(entry.sessionUri, { method: 'DELETE' }).catch(() => { /* best-effort */ });
+        }
+        entry.state = 'removed';
+    }
+    li.remove();
+    this.files.splice(idx, 1);
     this._refreshHidden();
 };
 
