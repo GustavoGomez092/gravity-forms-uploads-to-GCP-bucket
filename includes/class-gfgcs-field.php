@@ -110,3 +110,14 @@ add_filter( 'gform_tooltips', function ( $tt ) {
     $tt['form_field_gcs_max_size'] = esc_html__( 'Per-file maximum, in MB. Leave blank to use form/global default.', 'gf-gcs-uploads' );
     return $tt;
 } );
+
+add_action( 'gform_enqueue_scripts', function ( $form ) {
+    $has = false;
+    foreach ( (array) $form['fields'] as $f ) {
+        if ( $f->type === 'gcs_upload' ) { $has = true; break; }
+    }
+    if ( ! $has ) return;
+    wp_enqueue_style( 'gfgcs-field', GFGCS_PLUGIN_URL . 'assets/css/gfgcs-field.css', array(), GFGCS_VERSION );
+    wp_enqueue_script( 'gfgcs-uploader', GFGCS_PLUGIN_URL . 'assets/js/gfgcs-uploader.js', array(), GFGCS_VERSION, true );
+    wp_scripts()->add_data( 'gfgcs-uploader', 'type', 'module' );
+}, 10, 1 );
