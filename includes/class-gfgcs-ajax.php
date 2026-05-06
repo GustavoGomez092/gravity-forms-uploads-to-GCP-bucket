@@ -11,6 +11,7 @@ class GFGCS_Ajax {
     public static function register() {
         add_action( 'wp_ajax_gfgcs_test_connection', array( __CLASS__, 'test_connection' ) );
         add_action( 'wp_ajax_gfgcs_rotate_secret',   array( __CLASS__, 'rotate_secret' ) );
+        self::register_init();
     }
 
     public static function test_connection() {
@@ -41,5 +42,160 @@ class GFGCS_Ajax {
         }
         GFGCS_Settings::rotate_signing_secret();
         wp_send_json_success();
+    }
+
+    public static function register_init() {
+        add_action( 'wp_ajax_gfgcs_init',        array( __CLASS__, 'init_upload' ) );
+        add_action( 'wp_ajax_nopriv_gfgcs_init', array( __CLASS__, 'init_upload' ) );
+    }
+
+    public static function init_upload() {
+        $form_id  = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
+        $field_id = isset( $_POST['field_id'] ) ? absint( $_POST['field_id'] ) : 0;
+        if ( ! $form_id || ! $field_id ) {
+            wp_send_json_error( array( 'code' => 'bad_request' ), 400 );
+        }
+        if ( ! check_ajax_referer( 'gfgcs_init_' . $form_id, 'nonce', false ) ) {
+            wp_send_json_error( array( 'code' => 'bad_nonce' ), 403 );
+        }
+        $cfg = GFGCS_Settings::get_global();
+        if ( ! is_array( $cfg['sa'] ) || ! $cfg['default_bucket'] ) {
+            wp_send_json_error( array( 'code' => 'not_configured' ), 503 );
+        }
+        $form = class_exists( 'GFAPI' ) ? GFAPI::get_form( $form_id ) : null;
+        if ( ! $form ) {
+            wp_send_json_error( array( 'code' => 'unknown_form' ), 404 );
+        }
+
+        $effective = self::effective_field_settings( $form, $field_id, $cfg );
+        if ( ! $effective ) {
+            wp_send_json_error( array( 'code' => 'unknown_field' ), 404 );
+        }
+
+        $filename = isset( $_POST['filename'] ) ? wp_unslash( (string) $_POST['filename'] ) : '';
+        $size     = isset( $_POST['size'] ) ? (int) $_POST['size'] : 0;
+        $mime     = isset( $_POST['type'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['type'] ) ) : 'application/octet-stream';
+        if ( $filename === '' || $size <= 0 ) {
+            wp_send_json_error( array( 'code' => 'bad_request' ), 400 );
+        }
+        if ( $size > $effective['max_size_bytes'] ) {
+            wp_send_json_error( array( 'code' => 'size_exceeded', 'max' => $effective['max_size_bytes'] ), 422 );
+        }
+        if ( ! self::mime_allowed( $mime, $effective['allowed_mimes'] ) ) {
+            wp_send_json_error( array( 'code' => 'mime_not_allowed', 'allowed' => $effective['allowed_mimes'] ), 422 );
+        }
+
+        $submission_uuid = isset( $_POST['submission_uuid'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['submission_uuid'] ) ) : '';
+        if ( ! preg_match( '/^[a-f0-9-]{16,64}$/', $submission_uuid ) ) {
+            $submission_uuid = self::uuidv4();
+        }
+        $file_uuid = self::uuidv4();
+
+        $prefix_template = $effective['prefix'];
+        $prefix          = GFGCS_Settings::expand_prefix( $prefix_template, array(
+            'form_id'         => $form_id,
+            'form_title'      => $form['title'] ?? '',
+            'submission_uuid' => $submission_uuid,
+            'Y' => gmdate( 'Y' ), 'm' => gmdate( 'm' ), 'd' => gmdate( 'd' ),
+        ) );
+        if ( substr( $prefix, -1 ) !== '/' ) {
+            $prefix .= '/';
+        }
+        $object_path = self::build_object_path( $prefix, $field_id, $file_uuid, $filename );
+
+        try {
+            $signer = new GFGCS_Signer( $cfg['sa'] );
+            $signed = $signer->sign_resumable_init_url( $effective['bucket'], $object_path, 3600 );
+        } catch ( \Throwable $e ) {
+            wp_send_json_error( array( 'code' => 'signing_failed', 'message' => $e->getMessage() ), 500 );
+        }
+        wp_send_json_success( array(
+            'signed_init_url' => $signed,
+            'object_path'     => $object_path,
+            'submission_uuid' => $submission_uuid,
+            'file_uuid'       => $file_uuid,
+            'bucket'          => $effective['bucket'],
+        ) );
+    }
+
+    /** Resolves bucket/prefix/limits with per-field > per-form > global precedence (per-field for size/mimes only). */
+    public static function effective_field_settings( $form, $field_id, $global ) {
+        $field = null;
+        foreach ( (array) ( $form['fields'] ?? array() ) as $f ) {
+            if ( (int) $f->id === (int) $field_id && $f->type === 'gcs_upload' ) {
+                $field = $f;
+                break;
+            }
+        }
+        if ( ! $field ) {
+            return null;
+        }
+        $form_settings = method_exists( 'GFGCS_Addon', 'get_instance' ) ? ( GFGCS_Addon::get_instance()->get_form_settings( $form ) ?: array() ) : array();
+
+        // Bucket / prefix: per-form override (gated by checkbox) OR global default.
+        $bucket = ( ! empty( $form_settings['override_bucket'] ) && ! empty( $form_settings['bucket_override'] ) )
+            ? $form_settings['bucket_override']
+            : $global['default_bucket'];
+
+        $prefix = ( ! empty( $form_settings['override_prefix'] ) && ! empty( $form_settings['prefix_override'] ) )
+            ? $form_settings['prefix_override']
+            : $global['default_prefix'];
+
+        // Max size: per-field maxFileSize > per-form override > global.
+        $max_mb_field = (int) ( $field->maxFileSize ?? 0 );
+        $max_mb_form  = ( ! empty( $form_settings['override_size'] ) ) ? (int) ( $form_settings['max_size_mb'] ?? 0 ) : 0;
+        $max_mb       = $max_mb_field ?: ( $max_mb_form ?: (int) $global['max_size_mb'] );
+
+        // MIMEs: per-field allowedMimes > per-form override > global.
+        $mimes_field = trim( (string) ( $field->allowedMimes ?? '' ) );
+        $mimes_form  = ( ! empty( $form_settings['override_mimes'] ) ) ? trim( (string) ( $form_settings['allowed_mimes'] ?? '' ) ) : '';
+        $mimes_str   = $mimes_field !== '' ? $mimes_field : ( $mimes_form !== '' ? $mimes_form : $global['allowed_mimes'] );
+        $mimes       = array_filter( array_map( 'trim', explode( ',', $mimes_str ) ) );
+
+        return array(
+            'bucket'         => $bucket,
+            'prefix'         => $prefix,
+            'max_size_bytes' => $max_mb * 1024 * 1024,
+            'allowed_mimes'  => $mimes,
+        );
+    }
+
+    public static function build_object_path( $prefix, $field_id, $file_uuid, $filename ) {
+        // Strip path traversal sequences before charset sanitization.
+        $sanitized = preg_replace( '/\.\.?\//', '', $filename );
+        $base = preg_replace( '/[^A-Za-z0-9._\- ]+/', '-', $sanitized );
+        $base = trim( $base, '-' );
+        if ( $base === '' ) { $base = 'file'; }
+        if ( strlen( $base ) > 200 ) {
+            $ext  = '';
+            $dot  = strrpos( $base, '.' );
+            if ( $dot !== false && $dot > strlen( $base ) - 12 ) {
+                $ext  = substr( $base, $dot );
+                $base = substr( $base, 0, $dot );
+            }
+            $base = substr( $base, 0, 200 - strlen( $ext ) ) . $ext;
+        }
+        return rtrim( $prefix, '/' ) . '/' . intval( $field_id ) . '/' . $file_uuid . '/' . $base;
+    }
+
+    public static function mime_allowed( $mime, array $patterns ) {
+        if ( empty( $patterns ) ) { return true; }
+        foreach ( $patterns as $p ) {
+            $p = strtolower( trim( $p ) );
+            if ( $p === '' ) { continue; }
+            if ( substr( $p, -2 ) === '/*' ) {
+                if ( strpos( strtolower( $mime ), substr( $p, 0, -1 ) ) === 0 ) { return true; }
+            } elseif ( strtolower( $mime ) === $p ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function uuidv4() {
+        $b = random_bytes( 16 );
+        $b[6] = chr( ( ord( $b[6] ) & 0x0f ) | 0x40 );
+        $b[8] = chr( ( ord( $b[8] ) & 0x3f ) | 0x80 );
+        return vsprintf( '%s%s-%s-%s-%s-%s%s%s', str_split( bin2hex( $b ), 4 ) );
     }
 }
