@@ -31,4 +31,37 @@ class TokenTest extends TestCase {
         $this->assertSame( 24, strlen( $t ) );
         $this->assertMatchesRegularExpression( '/^[A-Za-z0-9_-]+$/', $t );
     }
+
+    public function test_content_disposition_strips_control_chars() {
+        $rm = new \ReflectionMethod( '\GFGCS_Proxy', 'content_disposition' );
+        $rm->setAccessible( true );
+        $out = $rm->invoke( null, "evil\r\nset-cookie: x=y\r\n.jpg" );
+        $this->assertStringNotContainsString( "\r", $out );
+        $this->assertStringNotContainsString( "\n", $out );
+        $this->assertStringStartsWith( 'inline; filename="', $out );
+    }
+
+    public function test_content_disposition_handles_unicode_via_rfc5987() {
+        $rm = new \ReflectionMethod( '\GFGCS_Proxy', 'content_disposition' );
+        $rm->setAccessible( true );
+        $out = $rm->invoke( null, 'foto-niño.jpg' );
+        // ASCII fallback substitutes non-ASCII with _
+        $this->assertStringContainsString( 'filename="foto-ni__o.jpg"', $out );
+        // RFC 5987 UTF-8 form preserves the original via percent-encoding
+        $this->assertStringContainsString( "filename*=UTF-8''foto-ni%C3%B1o.jpg", $out );
+    }
+
+    public function test_content_disposition_escapes_quotes() {
+        $rm = new \ReflectionMethod( '\GFGCS_Proxy', 'content_disposition' );
+        $rm->setAccessible( true );
+        $out = $rm->invoke( null, 'a"b.jpg' );
+        $this->assertStringContainsString( 'filename="a\\"b.jpg"', $out );
+    }
+
+    public function test_content_disposition_empty_filename_falls_back() {
+        $rm = new \ReflectionMethod( '\GFGCS_Proxy', 'content_disposition' );
+        $rm->setAccessible( true );
+        $out = $rm->invoke( null, '' );
+        $this->assertStringContainsString( 'filename="file"', $out );
+    }
 }

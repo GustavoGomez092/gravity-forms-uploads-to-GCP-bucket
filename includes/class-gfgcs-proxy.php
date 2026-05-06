@@ -83,7 +83,7 @@ class GFGCS_Proxy {
                 max( 60, (int) $cfg['redirect_lifetime'] * 60 ),
                 array(),
                 array(
-                    'response-content-disposition' => 'inline; filename="' . str_replace( '"', '', $file['original_name'] ?? 'file' ) . '"',
+                    'response-content-disposition' => self::content_disposition( $file['original_name'] ?? 'file' ),
                 )
             );
         } catch ( \Throwable $e ) {
@@ -94,6 +94,29 @@ class GFGCS_Proxy {
         $response->header( 'Cache-Control', 'private, no-store' );
         $response->header( 'X-Robots-Tag', 'noindex, nofollow' );
         return $response;
+    }
+
+    /**
+     * Build a Content-Disposition value safe for any filename.
+     * Format: inline; filename="<ascii-sanitized>"; filename*=UTF-8''<percent-encoded>
+     * Strips CR/LF (prevents header injection) and quotes / backslashes.
+     */
+    private static function content_disposition( $filename ) {
+        $filename = (string) $filename;
+        // Strip CR/LF and other control chars that could enable header injection.
+        $filename = preg_replace( '/[\x00-\x1F\x7F]+/', '', $filename );
+        if ( $filename === '' ) {
+            $filename = 'file';
+        }
+
+        // ASCII fallback: replace non-ASCII bytes with `_`, also escape `"` and `\`.
+        $ascii = preg_replace( '/[^\x20-\x7E]/', '_', $filename );
+        $ascii = str_replace( array( '\\', '"' ), array( '\\\\', '\\"' ), $ascii );
+
+        // RFC 5987 UTF-8 form: percent-encode the raw bytes.
+        $utf8 = rawurlencode( $filename );
+
+        return 'inline; filename="' . $ascii . '"; filename*=UTF-8\'\'' . $utf8;
     }
 
     private static function client_ip() {

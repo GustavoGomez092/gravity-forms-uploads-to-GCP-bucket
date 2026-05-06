@@ -39,13 +39,21 @@ class GFGCS_OAuth {
             'timeout' => 10,
         ) );
         if ( is_wp_error( $response ) ) {
-            throw new \RuntimeException( 'OAuth token request failed: ' . $response->get_error_message() );
+            $exc = new \GFGCS_OAuth_Exception( 'OAuth token request failed (transient): ' . $response->get_error_message() );
+            $exc->kind = 'transient';
+            throw $exc;
         }
         $code = wp_remote_retrieve_response_code( $response );
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( $code !== 200 || empty( $body['access_token'] ) ) {
-            $msg = is_array( $body ) && isset( $body['error_description'] ) ? $body['error_description'] : 'unknown';
-            throw new \RuntimeException( "OAuth token exchange failed (HTTP $code): $msg" );
+            $err_code   = is_array( $body ) && isset( $body['error'] ) ? (string) $body['error'] : '';
+            $err_msg    = is_array( $body ) && isset( $body['error_description'] ) ? (string) $body['error_description'] : 'unknown';
+            $is_transient = ( $code >= 500 ) || $code === 0 || $code === 429;
+            $hint = self::oauth_error_hint( $err_code );
+            $exc  = new \GFGCS_OAuth_Exception( sprintf( 'OAuth token exchange failed (HTTP %d, %s): %s%s', $code, $is_transient ? 'transient' : 'permanent', $err_msg, $hint ) );
+            $exc->kind = $is_transient ? 'transient' : 'permanent';
+            $exc->error_code = $err_code;
+            throw $exc;
         }
         $token = $body['access_token'];
         $ttl   = max( 60, intval( $body['expires_in'] ?? 3600 ) - 300 );
@@ -90,4 +98,20 @@ class GFGCS_OAuth {
     private static function b64url( $data ) {
         return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
     }
+
+    private static function oauth_error_hint( $err_code ) {
+        switch ( $err_code ) {
+            case 'invalid_grant':       return ' — likely causes: clock skew on this server, or the service-account key has been revoked/rotated. Verify NTP and re-paste a fresh key.';
+            case 'unauthorized_client': return ' — the service account is not authorized for this token request. Check IAM bindings.';
+            case 'invalid_request':     return ' — the JWT assertion is malformed. Check the SA JSON for completeness.';
+            default:                    return $err_code !== '' ? " ($err_code)" : '';
+        }
+    }
+}
+
+class GFGCS_OAuth_Exception extends \RuntimeException {
+    /** @var string 'transient' | 'permanent' */
+    public $kind = 'permanent';
+    /** @var string OAuth error code, e.g. 'invalid_grant' */
+    public $error_code = '';
 }
