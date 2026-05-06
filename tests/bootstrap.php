@@ -15,3 +15,8 @@ if ( ! function_exists( 'get_transient' ) ) {
 if ( ! function_exists( 'set_transient' ) ) {
     function set_transient( $k, $v, $ttl ) { return true; }
 }
+if ( ! function_exists( 'wp_parse_args' ) ) {
+    function wp_parse_args( $args, $defaults ) {
+        return array_merge( $defaults, (array) $args );
+    }
+}
