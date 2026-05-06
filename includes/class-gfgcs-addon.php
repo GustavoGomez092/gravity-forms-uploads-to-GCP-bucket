@@ -246,6 +246,16 @@ class GFGCS_Addon extends GFAddOn {
         if ( ! is_array( $cfg['sa'] ) ) {
             return $validation_result;
         }
+        $has_any_input = false;
+        foreach ( $form['fields'] as $f ) {
+            if ( $f->type === 'gcs_upload' && isset( $_POST[ 'input_' . $f->id ] ) ) {
+                $has_any_input = true;
+                break;
+            }
+        }
+        if ( ! $has_any_input && function_exists( 'is_admin' ) && is_admin() ) {
+            return $validation_result;
+        }
         $client = null;
         foreach ( $form['fields'] as &$field ) {
             if ( $field->type !== 'gcs_upload' ) continue;

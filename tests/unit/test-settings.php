@@ -1,6 +1,7 @@
 <?php
 namespace GFGCS\Tests\Unit;
 
+use Brain\Monkey;
 use PHPUnit\Framework\TestCase;
 
 require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-settings.php';
@@ -45,5 +46,30 @@ class SettingsTest extends TestCase {
         $ctx = array( 'form_id' => 7 );
         // {entry_email} isn't whitelisted — left literal.
         $this->assertSame( 'x/{entry_email}/7/', \GFGCS_Settings::expand_prefix( 'x/{entry_email}/{form_id}/', $ctx ) );
+    }
+
+    public function test_update_global_invalidates_oauth_transient_when_sa_changes() {
+        // Use the stateful bootstrap shim spy (avoids Patchwork "DefinedTooEarly" conflict).
+        $GLOBALS['_test_deleted_transients'] = array();
+
+        \Brain\Monkey\setUp();
+        \Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+        \Brain\Monkey\Functions\when( 'update_option' )->justReturn( true );
+        // wp_json_encode is already shimmed in bootstrap; don't alias via Patchwork.
+
+        // Ensure GFGCS_OAuth class is loaded (required for class_exists check).
+        require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-oauth.php';
+
+        \GFGCS_Settings::update_global( array(
+            'sa' => array(
+                'type'         => 'service_account',
+                'client_email' => 'svc@x.iam',
+                'private_key'  => 'k',
+            ),
+        ) );
+        \Brain\Monkey\tearDown();
+
+        $this->assertContains( 'gfgcs_oauth_token', $GLOBALS['_test_deleted_transients'],
+            'delete_transient() should be called with the OAuth transient key when SA changes.' );
     }
 }

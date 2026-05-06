@@ -90,6 +90,9 @@ class GFGCS_Settings {
             $existing = array();
         }
         if ( isset( $patch['sa'] ) && is_array( $patch['sa'] ) ) {
+            if ( function_exists( 'delete_transient' ) && class_exists( 'GFGCS_OAuth' ) ) {
+                delete_transient( GFGCS_OAuth::TRANSIENT_KEY );
+            }
             $existing['sa_encrypted'] = self::encrypt( wp_json_encode( $patch['sa'] ), self::site_key() );
             unset( $patch['sa'] );
         }
