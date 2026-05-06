@@ -75,12 +75,13 @@ class GFGCS_Settings {
             $raw['sa'] = $decoded ? json_decode( $decoded, true ) : null;
         }
         return wp_parse_args( $raw, array(
-            'sa'                => null,
-            'default_bucket'    => '',
-            'default_prefix'    => 'gravityforms/',
-            'max_size_mb'       => 1024,
-            'allowed_mimes'     => 'image/*, video/*',
-            'redirect_lifetime' => 15,
+            'sa'                    => null,
+            'default_bucket'        => '',
+            'default_prefix'        => 'gravityforms/',
+            'max_size_mb'           => 1024,
+            'allowed_mimes'         => 'image/*, video/*',
+            'redirect_lifetime'     => 15,
+            'trusted_proxy_header'  => 'none',
         ) );
     }
 

@@ -97,12 +97,27 @@ class GFGCS_Proxy {
     }
 
     private static function client_ip() {
-        foreach ( array( 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR' ) as $h ) {
-            if ( ! empty( $_SERVER[ $h ] ) ) {
-                $first = explode( ',', $_SERVER[ $h ] )[0];
-                return trim( $first );
-            }
+        $cfg    = GFGCS_Settings::get_global();
+        $choice = isset( $cfg['trusted_proxy_header'] ) ? $cfg['trusted_proxy_header'] : 'none';
+
+        if ( $choice === 'cf_connecting_ip' && ! empty( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ) {
+            return self::sanitize_ip( $_SERVER['HTTP_CF_CONNECTING_IP'] );
+        }
+        if ( $choice === 'x_forwarded_for' && ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+            // X-Forwarded-For may carry a comma-separated list; first entry is the original client.
+            $first = explode( ',', $_SERVER['HTTP_X_FORWARDED_FOR'] )[0];
+            return self::sanitize_ip( $first );
+        }
+        if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+            return self::sanitize_ip( $_SERVER['REMOTE_ADDR'] );
         }
         return '0.0.0.0';
+    }
+
+    private static function sanitize_ip( $ip ) {
+        $ip = trim( (string) $ip );
+        // Validate against IPv4/IPv6 grammar; fall back to a placeholder for invalid input
+        // so a single rate-limit bucket catches misformatted values.
+        return filter_var( $ip, FILTER_VALIDATE_IP ) ?: '0.0.0.0';
     }
 }

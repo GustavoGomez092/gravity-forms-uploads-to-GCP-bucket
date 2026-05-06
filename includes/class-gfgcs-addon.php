@@ -129,18 +129,32 @@ class GFGCS_Addon extends GFAddOn {
                         'default_value' => (string) $current['redirect_lifetime'],
                         'tooltip' => esc_html__( 'How long the GCS signed URL the proxy redirects to remains valid. 1–10080.', 'gf-gcs-uploads' ),
                     ),
+                    array(
+                        'name'    => 'trusted_proxy_header',
+                        'label'   => esc_html__( 'Trusted Client-IP Header', 'gf-gcs-uploads' ),
+                        'type'    => 'select',
+                        'choices' => array(
+                            array( 'value' => 'none',             'label' => esc_html__( 'None — use REMOTE_ADDR (default; safest if you don\'t know)', 'gf-gcs-uploads' ) ),
+                            array( 'value' => 'x_forwarded_for',  'label' => esc_html__( 'X-Forwarded-For (set by reverse proxies / load balancers)', 'gf-gcs-uploads' ) ),
+                            array( 'value' => 'cf_connecting_ip', 'label' => esc_html__( 'CF-Connecting-IP (Cloudflare)', 'gf-gcs-uploads' ) ),
+                        ),
+                        'default_value' => $current['trusted_proxy_header'],
+                        'tooltip' => esc_html__( 'Determines which $_SERVER value the proxy URL rate-limit uses to identify a client. Only set this if all incoming traffic flows through the chosen proxy — picking a header that an attacker can spoof defeats the rate limit.', 'gf-gcs-uploads' ),
+                    ),
                 ),
             ),
         );
     }
 
     public function update_plugin_settings( $settings ) {
+        $tph = $settings['trusted_proxy_header'] ?? 'none';
         $patch = array(
-            'default_bucket'    => sanitize_text_field( $settings['default_bucket'] ?? '' ),
-            'default_prefix'    => sanitize_text_field( $settings['default_prefix'] ?? 'gravityforms/' ),
-            'max_size_mb'       => max( 1, intval( $settings['max_size_mb'] ?? 1024 ) ),
-            'allowed_mimes'     => sanitize_text_field( $settings['allowed_mimes'] ?? 'image/*, video/*' ),
-            'redirect_lifetime' => min( 10080, max( 1, intval( $settings['redirect_lifetime'] ?? 15 ) ) ),
+            'default_bucket'        => sanitize_text_field( $settings['default_bucket'] ?? '' ),
+            'default_prefix'        => sanitize_text_field( $settings['default_prefix'] ?? 'gravityforms/' ),
+            'max_size_mb'           => max( 1, intval( $settings['max_size_mb'] ?? 1024 ) ),
+            'allowed_mimes'         => sanitize_text_field( $settings['allowed_mimes'] ?? 'image/*, video/*' ),
+            'redirect_lifetime'     => min( 10080, max( 1, intval( $settings['redirect_lifetime'] ?? 15 ) ) ),
+            'trusted_proxy_header'  => in_array( $tph, array( 'none', 'x_forwarded_for', 'cf_connecting_ip' ), true ) ? $tph : 'none',
         );
         $sa_raw = trim( (string) ( $settings['sa_json'] ?? '' ) );
         if ( $sa_raw !== '' ) {
