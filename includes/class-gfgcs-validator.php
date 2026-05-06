@@ -12,10 +12,11 @@ class GFGCS_Validator {
      * @param string $prefix   Expected object-path prefix (may contain tokens).
      * @param object $client   GCS client with object_metadata( $bucket, $path ).
      * @param bool   $required Whether the field is required.
+     * @param int    $field_id The numeric ID of the field being validated.
      *
      * @return array{code:string,message:string}|null  null = pass.
      */
-    public static function verify_field( $files, $bucket, $prefix, $client, $required = false ) {
+    public static function verify_field( $files, $bucket, $prefix, $client, $required = false, $field_id = 0 ) {
         if ( ! is_array( $files ) ) {
             $files = array();
         }
@@ -26,10 +27,20 @@ class GFGCS_Validator {
                 : null;
         }
 
-        // Derive the static literal portion of the prefix (strip token placeholders).
+        // Build a regex pattern from the prefix template:
+        // literal segments are escaped, {tokens} become [^/]* (matches a single path segment).
         $prefix_match = rtrim( $prefix, '/' );
-        $literal      = preg_replace( '/\{[a-z_]+\}.*$/', '', $prefix_match );
-        $literal      = rtrim( $literal, '/' );
+        $pattern_parts = preg_split( '/(\{[a-z_]+\})/', $prefix_match, -1, PREG_SPLIT_DELIM_CAPTURE );
+        $pattern = '';
+        foreach ( $pattern_parts as $part ) {
+            if ( $part === '' ) continue;
+            if ( preg_match( '/^\{[a-z_]+\}$/', $part ) ) {
+                $pattern .= '[^/]*';
+            } else {
+                $pattern .= preg_quote( $part, '#' );
+            }
+        }
+        $prefix_regex = '#^' . $pattern . '/#';
 
         foreach ( $files as $f ) {
             $path = (string) ( $f['object_path'] ?? '' );
@@ -40,8 +51,13 @@ class GFGCS_Validator {
                 return array( 'code' => 'tampered_path', 'message' => 'Submission integrity check failed.' );
             }
 
-            // Path-tampering check: must start with the literal prefix portion.
-            if ( $literal !== '' && strpos( $path, $literal ) !== 0 ) {
+            // Path-tampering check: must match the prefix regex.
+            if ( ! preg_match( $prefix_regex, $path, $matched ) ) {
+                return array( 'code' => 'tampered_path', 'message' => 'Submission integrity check failed.' );
+            }
+            $tail = substr( $path, strlen( $matched[0] ) );
+            $expected_tail = (int) $field_id . '/' . ( $f['file_uuid'] ?? '' ) . '/';
+            if ( $field_id <= 0 || empty( $f['file_uuid'] ) || strpos( $tail, $expected_tail ) !== 0 ) {
                 return array( 'code' => 'tampered_path', 'message' => 'Submission integrity check failed.' );
             }
 

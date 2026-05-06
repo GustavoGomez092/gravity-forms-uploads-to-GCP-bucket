@@ -57,15 +57,22 @@ class GFGCS_Cleanup {
 
 	private static function is_referenced_in_entries( $object_path ) {
 		if ( ! class_exists( 'GFAPI' ) ) {
-			return true;
+			return true; // fail-safe: never delete when GF isn't loaded
 		}
-		$search = array(
-			'field_filters' => array(
-				'mode' => 'any',
-				array( 'key' => 'meta', 'operator' => 'contains', 'value' => $object_path ),
-			),
-		);
-		$count = \GFAPI::count_entries( null, $search );
-		return $count > 0;
+		$forms = \GFAPI::get_forms( true ); // active forms only
+		foreach ( $forms as $form_summary ) {
+			$form = \GFAPI::get_form( $form_summary['id'] );
+			if ( ! $form ) continue;
+			foreach ( (array) ( $form['fields'] ?? array() ) as $f ) {
+				if ( ! isset( $f->type ) || $f->type !== 'gcs_upload' ) continue;
+				$count = \GFAPI::count_entries( (int) $form['id'], array(
+					'field_filters' => array(
+						array( 'key' => (string) $f->id, 'operator' => 'contains', 'value' => $object_path ),
+					),
+				) );
+				if ( is_int( $count ) && $count > 0 ) return true;
+			}
+		}
+		return false;
 	}
 }

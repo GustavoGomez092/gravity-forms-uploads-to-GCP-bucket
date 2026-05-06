@@ -255,7 +255,7 @@ class GFGCS_Addon extends GFAddOn {
             if ( ! $client ) {
                 $client = new GFGCS_GCS_Client( new GFGCS_OAuth( $cfg['sa'] ) );
             }
-            $err = GFGCS_Validator::verify_field( $files, $effective['bucket'], $effective['prefix'], $client, ! empty( $field->isRequired ) );
+            $err = GFGCS_Validator::verify_field( $files, $effective['bucket'], $effective['prefix'], $client, ! empty( $field->isRequired ), (int) $field->id );
             if ( $err ) {
                 $field->failed_validation  = true;
                 $field->validation_message = $err['message'];
