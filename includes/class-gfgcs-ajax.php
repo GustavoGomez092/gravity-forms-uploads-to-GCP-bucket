@@ -114,7 +114,6 @@ class GFGCS_Ajax {
             'object_path'     => $object_path,
             'submission_uuid' => $submission_uuid,
             'file_uuid'       => $file_uuid,
-            'bucket'          => $effective['bucket'],
         ) );
     }
 

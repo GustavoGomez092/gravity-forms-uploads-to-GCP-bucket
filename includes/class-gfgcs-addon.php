@@ -30,19 +30,17 @@ class GFGCS_Addon extends GFAddOn {
     }
 
     public function init() {
-        add_action( 'init', function () {
-            if ( class_exists( 'GF_Fields' ) ) {
-                require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-field.php';
-            }
-        } );
+        if ( class_exists( 'GF_Fields' ) ) {
+            require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-field.php';
+        }
         parent::init();
         require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
         GFGCS_Ajax::register();
+        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+        add_action( 'rest_api_init', array( 'GFGCS_Proxy', 'register_routes' ) );
         GFGCS_Merge_Tags::register();
         GFGCS_Cleanup::register();
-        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
         add_filter( 'gform_validation', array( $this, 'validate_submission' ) );
-        add_action( 'rest_api_init', array( 'GFGCS_Proxy', 'register_routes' ) );
     }
 
     public function plugin_settings_fields() {
@@ -239,6 +237,11 @@ class GFGCS_Addon extends GFAddOn {
 
     public function enqueue_admin_assets( $hook ) {
         if ( strpos( (string) $hook, 'gf_settings' ) === false ) {
+            return;
+        }
+        // Only enqueue on our own subview, or on the top-level GF Settings page where our tab might appear.
+        $subview = isset( $_GET['subview'] ) ? sanitize_key( wp_unslash( $_GET['subview'] ) ) : '';
+        if ( $subview !== '' && $subview !== $this->_slug ) {
             return;
         }
         wp_enqueue_script( 'gfgcs-admin', GFGCS_PLUGIN_URL . 'assets/js/gfgcs-admin.js', array(), GFGCS_VERSION, true );

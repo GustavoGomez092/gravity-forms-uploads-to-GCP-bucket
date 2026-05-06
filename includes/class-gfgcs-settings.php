@@ -41,8 +41,7 @@ class GFGCS_Settings {
     public static function site_key() {
         $material = ( defined( 'AUTH_KEY' ) ? AUTH_KEY : '' ) . ( defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : '' );
         if ( $material === '' ) {
-            // Fallback: use site URL + DB prefix. Last resort; should never hit on a real WP install.
-            $material = ( defined( 'WP_SITEURL' ) ? WP_SITEURL : '' ) . ( $GLOBALS['table_prefix'] ?? '' );
+            throw new \RuntimeException( 'gf-gcs-uploads: AUTH_KEY and SECURE_AUTH_KEY are not defined in wp-config.php. The plugin needs them to encrypt the service-account JSON at rest. Add them via https://api.wordpress.org/secret-key/1.1/salt/ and try again.' );
         }
         return $material;
     }
