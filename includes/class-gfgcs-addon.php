@@ -24,6 +24,9 @@ class GFGCS_Addon extends GFAddOn {
 
     public function init() {
         parent::init();
+        require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
+        GFGCS_Ajax::register();
+        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
     }
 
     public function plugin_settings_fields() {
@@ -139,5 +142,22 @@ class GFGCS_Addon extends GFAddOn {
             $patch['sa'] = $sa;
         }
         GFGCS_Settings::update_global( $patch );
+    }
+
+    public function enqueue_admin_assets( $hook ) {
+        if ( strpos( (string) $hook, 'gf_settings' ) === false ) {
+            return;
+        }
+        wp_enqueue_script( 'gfgcs-admin', GFGCS_PLUGIN_URL . 'assets/js/gfgcs-admin.js', array(), GFGCS_VERSION, true );
+        wp_localize_script( 'gfgcs-admin', 'GFGCSAdmin', array(
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'gfgcs_admin' ),
+            'i18n'    => array(
+                'testing'   => __( 'Testing…', 'gf-gcs-uploads' ),
+                'rotating'  => __( 'Rotating…', 'gf-gcs-uploads' ),
+                'rotated'   => __( 'Signing secret rotated. All existing permanent URLs are now invalid.', 'gf-gcs-uploads' ),
+                'confirm'   => __( 'This will break every previously emitted permanent URL. Continue?', 'gf-gcs-uploads' ),
+            ),
+        ) );
     }
 }
