@@ -2,3 +2,6 @@ vendor/
 node_modules/
 .phpunit.result.cache
 *.log
+
+# Subagent / planning scratch — never publish
+docs/
