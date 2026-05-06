@@ -23,6 +23,11 @@ class GFGCS_Addon extends GFAddOn {
     }
 
     public function init() {
+        add_action( 'init', function () {
+            if ( class_exists( 'GF_Fields' ) ) {
+                require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-field.php';
+            }
+        } );
         parent::init();
         require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
         GFGCS_Ajax::register();

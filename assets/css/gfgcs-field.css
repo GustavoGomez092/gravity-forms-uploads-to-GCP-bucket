@@ -1,0 +1,15 @@
+.ginput_container_gcs_upload .gfgcs-dropzone {
+    border: 2px dashed #999;
+    border-radius: 4px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    background: #fafafa;
+}
+.ginput_container_gcs_upload .gfgcs-dropzone.is-drag { background: #eef6ff; border-color: #2271b1; }
+.ginput_container_gcs_upload .gfgcs-files { list-style: none; padding: 0; margin: 8px 0 0; }
+.ginput_container_gcs_upload .gfgcs-file { padding: 8px 12px; border: 1px solid #ddd; border-radius: 3px; margin-bottom: 6px; }
+.ginput_container_gcs_upload .gfgcs-progress { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.ginput_container_gcs_upload .gfgcs-progress-bar { height: 100%; background: #2271b1; width: 0; transition: width .15s linear; }
+.ginput_container_gcs_upload .gfgcs-file.is-error { border-color: #d63638; background: #fcf0f1; }
+.ginput_container_gcs_upload .gfgcs-file.is-done .gfgcs-status::before { content: "✔ "; color: #00a32a; }
