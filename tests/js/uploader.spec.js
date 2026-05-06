@@ -70,3 +70,29 @@ describe('GFGCSUploader file list', () => {
         expect(errs.some(e => e.code === 'too_many_files')).toBe(true);
     });
 });
+
+describe('initGFGCS idempotency', () => {
+    it('does not attach a second uploader to the same host on re-init', async () => {
+        const { initGFGCS } = await import('../../assets/js/gfgcs-uploader.js');
+        const host = document.createElement('div');
+        host.innerHTML = '<div class="gfgcs-dropzone">drop</div><ul class="gfgcs-files"></ul><input class="gfgcs-hidden" />';
+        host.className = 'ginput_container_gcs_upload';
+        host.dataset.gfgcsConfig = JSON.stringify(cfg);
+        document.body.appendChild(host);
+
+        new GFGCSUploader(host);
+        host.dataset.gfgcsInited = '1';
+
+        // Record how many file inputs exist after first construction.
+        const inputCountBefore = host.querySelectorAll('input[type=file]').length;
+
+        // Calling initGFGCS again on the same host must skip it (guard: gfgcsInited=1).
+        initGFGCS(document.body);
+
+        // Give microtasks a moment to flush.
+        await new Promise(r => setTimeout(r, 0));
+
+        const inputCountAfter = host.querySelectorAll('input[type=file]').length;
+        expect(inputCountAfter).toBe(inputCountBefore);
+    });
+});

@@ -330,10 +330,47 @@ GFGCSUploader.prototype._removeRow = function (li) {
     this._refreshHidden();
 };
 
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.ginput_container_gcs_upload').forEach(host => {
-            new GFGCSUploader(host);
-        });
+export function initGFGCS(root) {
+    var scope = root || document;
+    if (!scope.querySelectorAll) return;
+    scope.querySelectorAll('.ginput_container_gcs_upload').forEach(function (host) {
+        if (host.dataset.gfgcsInited === '1') return;
+        host.dataset.gfgcsInited = '1';
+        new GFGCSUploader(host);
     });
+}
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function () { initGFGCS(); });
+
+    // Gravity Forms fires gform_post_render after every form re-render (multi-step,
+    // AJAX-submit confirmation reload, dynamic embeds). Hook into it via jQuery if
+    // available — that's GF's own dispatch transport.
+    if (typeof window.jQuery !== 'undefined') {
+        window.jQuery(document).on('gform_post_render', function (_event, formId) {
+            var form = document.getElementById('gform_' + formId) || document.getElementById('gform_wrapper_' + formId);
+            initGFGCS(form || document);
+        });
+    }
+
+    // Fallback: a MutationObserver picks up dynamically-inserted GCS upload fields
+    // even when GF's jQuery event isn't available.
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+        var observer = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                var added = mutations[i].addedNodes;
+                for (var j = 0; j < added.length; j++) {
+                    var node = added[j];
+                    if (node && node.nodeType === 1) {
+                        if (node.classList && node.classList.contains('ginput_container_gcs_upload')) {
+                            initGFGCS(node.parentNode || document);
+                        } else if (node.querySelectorAll) {
+                            initGFGCS(node);
+                        }
+                    }
+                }
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
 }
