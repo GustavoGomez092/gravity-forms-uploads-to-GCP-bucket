@@ -32,22 +32,26 @@ class GFGCS_Cleanup {
 		$cutoff  = time() - DAY_IN_SECONDS;
 
 		foreach ( $targets as $t ) {
-			try {
-				$items = $client->list_objects( $t['bucket'], $t['prefix'], 1000 );
-			} catch ( \Throwable $e ) {
-				$errors[] = sprintf( '[%s/%s] %s', $t['bucket'], $t['prefix'], $e->getMessage() );
-				continue;
-			}
-			foreach ( $items as $obj ) {
-				$checked++;
-				$name    = $obj['name'] ?? '';
-				$created = isset( $obj['timeCreated'] ) ? strtotime( $obj['timeCreated'] ) : time();
-				if ( $created > $cutoff ) continue;
-				if ( self::is_referenced_in_entries( $name ) ) continue;
-				if ( $client->delete_object( $t['bucket'], $name ) ) {
-					$deleted++;
+			$page_token = null;
+			do {
+				try {
+					$page = $client->list_objects( $t['bucket'], $t['prefix'], 1000, $page_token );
+				} catch ( \Throwable $e ) {
+					$errors[] = sprintf( '[%s/%s] %s', $t['bucket'], $t['prefix'], $e->getMessage() );
+					break;
 				}
-			}
+				foreach ( $page['items'] as $obj ) {
+					$checked++;
+					$name    = $obj['name'] ?? '';
+					$created = isset( $obj['timeCreated'] ) ? strtotime( $obj['timeCreated'] ) : time();
+					if ( $created > $cutoff ) continue;
+					if ( self::is_referenced_in_entries( $name ) ) continue;
+					if ( $client->delete_object( $t['bucket'], $name ) ) {
+						$deleted++;
+					}
+				}
+				$page_token = $page['next_page_token'];
+			} while ( ! empty( $page_token ) );
 		}
 
 		update_option( 'gfgcs_cleanup_last_run', array(

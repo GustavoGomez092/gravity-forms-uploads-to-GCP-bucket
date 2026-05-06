@@ -56,8 +56,18 @@ class GFGCS_GCS_Client {
         return $code === 204 || $code === 404; // 404 = already gone, treat as success.
     }
 
-    public function list_objects( $bucket, $prefix = '', $max = 1 ) {
+    /**
+     * List objects in a bucket prefix. Returns at most $max items.
+     *
+     * If $page_token is provided, lists the next page (server-issued continuation token).
+     *
+     * @return array{items:array<int,array>, next_page_token:?string}
+     */
+    public function list_objects( $bucket, $prefix = '', $max = 1000, $page_token = null ) {
         $url = self::BASE . '/b/' . rawurlencode( $bucket ) . '/o?maxResults=' . intval( $max ) . '&prefix=' . rawurlencode( $prefix );
+        if ( is_string( $page_token ) && $page_token !== '' ) {
+            $url .= '&pageToken=' . rawurlencode( $page_token );
+        }
         $res = wp_remote_get( $url, array(
             'timeout' => 5,
             'headers' => array( 'Authorization' => 'Bearer ' . $this->oauth->get_access_token() ),
@@ -70,6 +80,9 @@ class GFGCS_GCS_Client {
             throw new \RuntimeException( "GCS list_objects HTTP $code: " . wp_remote_retrieve_body( $res ) );
         }
         $body = json_decode( wp_remote_retrieve_body( $res ), true );
-        return $body['items'] ?? array();
+        return array(
+            'items'           => isset( $body['items'] ) && is_array( $body['items'] ) ? $body['items'] : array(),
+            'next_page_token' => isset( $body['nextPageToken'] ) ? (string) $body['nextPageToken'] : null,
+        );
     }
 }

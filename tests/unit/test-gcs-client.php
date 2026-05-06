@@ -55,4 +55,36 @@ class GcsClientTest extends TestCase {
         $c = new \GFGCS_GCS_Client( new FakeOAuth() );
         $this->assertTrue( $c->delete_object( 'b', 'a.mov' ) );
     }
+
+    public function test_list_objects_returns_items_and_next_page_token() {
+        Functions\when( 'wp_remote_get' )->justReturn( array( 'response' => array( 'code' => 200 ) ) );
+        Functions\when( 'is_wp_error' )->justReturn( false );
+        Functions\when( 'wp_remote_retrieve_response_code' )->justReturn( 200 );
+        Functions\when( 'wp_remote_retrieve_body' )->justReturn( wp_json_encode( array(
+            'items'         => array(
+                array( 'name' => 'a/x.txt', 'size' => '10', 'timeCreated' => '2026-01-01T00:00:00Z' ),
+                array( 'name' => 'a/y.txt', 'size' => '20', 'timeCreated' => '2026-01-02T00:00:00Z' ),
+            ),
+            'nextPageToken' => 'abc-token-123',
+        ) ) );
+
+        $c = new \GFGCS_GCS_Client( new FakeOAuth() );
+        $page = $c->list_objects( 'b', 'a/', 1000 );
+        $this->assertCount( 2, $page['items'] );
+        $this->assertSame( 'abc-token-123', $page['next_page_token'] );
+    }
+
+    public function test_list_objects_returns_null_token_on_final_page() {
+        Functions\when( 'wp_remote_get' )->justReturn( array( 'response' => array( 'code' => 200 ) ) );
+        Functions\when( 'is_wp_error' )->justReturn( false );
+        Functions\when( 'wp_remote_retrieve_response_code' )->justReturn( 200 );
+        Functions\when( 'wp_remote_retrieve_body' )->justReturn( wp_json_encode( array(
+            'items' => array( array( 'name' => 'last.txt' ) ),
+        ) ) );
+
+        $c = new \GFGCS_GCS_Client( new FakeOAuth() );
+        $page = $c->list_objects( 'b', '', 1000 );
+        $this->assertCount( 1, $page['items'] );
+        $this->assertNull( $page['next_page_token'] );
+    }
 }
