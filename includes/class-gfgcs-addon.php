@@ -3,6 +3,10 @@ defined( 'ABSPATH' ) || exit;
 
 GFForms::include_addon_framework();
 require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-settings.php';
+require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-validator.php';
+require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-gcs-client.php';
+require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-oauth.php';
+require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
 
 class GFGCS_Addon extends GFAddOn {
     protected $_version           = GFGCS_VERSION;
@@ -32,6 +36,7 @@ class GFGCS_Addon extends GFAddOn {
         require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
         GFGCS_Ajax::register();
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+        add_filter( 'gform_validation', array( $this, 'validate_submission' ) );
     }
 
     public function plugin_settings_fields() {
@@ -164,5 +169,44 @@ class GFGCS_Addon extends GFAddOn {
                 'confirm'   => __( 'This will break every previously emitted permanent URL. Continue?', 'gf-gcs-uploads' ),
             ),
         ) );
+    }
+
+    public function validate_submission( $validation_result ) {
+        $form = $validation_result['form'];
+        $cfg  = GFGCS_Settings::get_global();
+        if ( ! is_array( $cfg['sa'] ) ) {
+            return $validation_result;
+        }
+        $client = null;
+        foreach ( $form['fields'] as &$field ) {
+            if ( $field->type !== 'gcs_upload' ) continue;
+            $raw    = rgpost( 'input_' . $field->id );
+            $files  = is_string( $raw ) && $raw !== '' ? json_decode( $raw, true ) : array();
+            $effective = GFGCS_Ajax::effective_field_settings( $form, $field->id, $cfg );
+            if ( ! $client ) {
+                $client = new GFGCS_GCS_Client( new GFGCS_OAuth( $cfg['sa'] ) );
+            }
+            $err = GFGCS_Validator::verify_field( $files, $effective['bucket'], $effective['prefix'], $client, ! empty( $field->isRequired ) );
+            if ( $err ) {
+                $field->failed_validation  = true;
+                $field->validation_message = $err['message'];
+                $validation_result['is_valid'] = false;
+                $this->log_error( $err['code'], array( 'form_id' => $form['id'], 'field_id' => $field->id ) );
+            }
+        }
+        $validation_result['form'] = $form;
+        return $validation_result;
+    }
+
+    public function log_error( $code, $context = array() ) {
+        if ( ! function_exists( 'wp_upload_dir' ) ) return;
+        $dir = wp_upload_dir();
+        $log_dir = trailingslashit( $dir['basedir'] ) . 'gf-gcs-uploads';
+        if ( ! file_exists( $log_dir ) ) {
+            wp_mkdir_p( $log_dir );
+            @file_put_contents( $log_dir . '/.htaccess', "Order deny,allow\nDeny from all\n" );
+        }
+        $line = gmdate( 'c' ) . " [$code] " . wp_json_encode( $context ) . "\n";
+        @file_put_contents( $log_dir . '/log-' . gmdate( 'Y-m' ) . '.log', $line, FILE_APPEND );
     }
 }
