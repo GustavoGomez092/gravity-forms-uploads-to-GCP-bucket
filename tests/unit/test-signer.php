@@ -55,4 +55,12 @@ class SignerTest extends TestCase {
         $put    = $signer->sign_url( 'PUT', 'b', 'o', 900 );
         $this->assertNotSame( $get, $put );
     }
+
+    public function test_sign_resumable_init_url_includes_x_goog_resumable_in_signed_headers() {
+        $signer = new \GFGCS_Signer( $this->sa );
+        $url    = $signer->sign_resumable_init_url( 'my-bucket', 'a.mov', 3600 );
+        parse_str( parse_url( $url, PHP_URL_QUERY ), $q );
+        $this->assertStringContainsString( 'x-goog-resumable', $q['X-Goog-SignedHeaders'] );
+        $this->assertStringContainsString( 'host', $q['X-Goog-SignedHeaders'] );
+    }
 }

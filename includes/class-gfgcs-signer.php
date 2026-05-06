@@ -106,4 +106,20 @@ class GFGCS_Signer {
         return 'https://' . $host . $canonical_resource . '?' . $canonical_query
             . '&X-Goog-Signature=' . bin2hex( $signature );
     }
+
+    /**
+     * Sign a URL for starting a resumable upload session.
+     * The client MUST send this request as POST with the header:
+     *     x-goog-resumable: start
+     * The 201 response's Location header is the actual session URI for chunk uploads.
+     */
+    public function sign_resumable_init_url( $bucket, $object_path, $expires = 3600 ) {
+        return $this->sign_url(
+            'POST',
+            $bucket,
+            $object_path,
+            $expires,
+            array( 'x-goog-resumable' => 'start' )
+        );
+    }
 }
