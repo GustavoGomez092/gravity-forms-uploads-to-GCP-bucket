@@ -1,5 +1,19 @@
 'use strict';
 
+export const CHUNK_SIZE = 8 * 1024 * 1024;
+export const MAX_RETRIES = 5;
+
+export function backoffMs(attempt) {
+    return Math.pow(2, Math.max(0, attempt - 1)) * 1000;
+}
+
+export function parseRangeHeader(header) {
+    if (!header) return 0;
+    const m = String(header).match(/bytes=\d+-(\d+)/);
+    if (!m) return 0;
+    return parseInt(m[1], 10) + 1;
+}
+
 export function preflight(file, cfg) {
     if (file.size > cfg.maxSize) {
         return { code: 'size_exceeded', max: cfg.maxSize };
@@ -114,10 +128,6 @@ export class GFGCSUploader {
         this._refreshHidden();
     }
 
-    _startUpload(/* entry */) {
-        // Stub. Filled in by Task 5.2.
-    }
-
     _watchForm(form) {
         const submit = form.querySelector('input[type=submit], button[type=submit]');
         if (!submit) return;
@@ -158,6 +168,160 @@ export class GFGCSUploader {
         }
     }
 }
+
+GFGCSUploader.prototype._initOnServer = async function (file) {
+    const fd = new FormData();
+    fd.append('action', 'gfgcs_init');
+    fd.append('form_id', this.cfg.formId);
+    fd.append('field_id', this.cfg.fieldId);
+    fd.append('nonce', this.cfg.nonce);
+    fd.append('filename', file.name);
+    fd.append('size', String(file.size));
+    fd.append('type', file.type || 'application/octet-stream');
+    if (this.submissionUuid) fd.append('submission_uuid', this.submissionUuid);
+    const res = await fetch(this.cfg.ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' });
+    const j = await res.json();
+    if (!res.ok || !j.success) {
+        const code = j && j.data && j.data.code ? j.data.code : 'init_failed';
+        throw Object.assign(new Error('init failed'), { code, data: j && j.data });
+    }
+    this.submissionUuid = j.data.submission_uuid;
+    return j.data;
+};
+
+GFGCSUploader.prototype._openSession = async function (signedInitUrl) {
+    const res = await fetch(signedInitUrl, {
+        method: 'POST',
+        headers: { 'x-goog-resumable': 'start', 'Content-Length': '0' },
+    });
+    if (res.status !== 201) {
+        throw new Error('Failed to open resumable session: HTTP ' + res.status);
+    }
+    const sessionUri = res.headers.get('Location');
+    if (!sessionUri) throw new Error('No Location header on session start response');
+    return sessionUri;
+};
+
+GFGCSUploader.prototype._startUpload = async function (entry) {
+    entry.state = 'initializing';
+    entry.row.querySelector('.gfgcs-status').textContent = 'Preparing…';
+    let init;
+    try {
+        init = await this._initOnServer(entry.file);
+    } catch (e) {
+        return this._fail(entry, e);
+    }
+    entry.objectPath = init.object_path;
+    entry.fileUuid = init.file_uuid;
+
+    let sessionUri;
+    try {
+        sessionUri = await this._openSession(init.signed_init_url);
+    } catch (e) {
+        return this._fail(entry, e);
+    }
+    entry.sessionUri = sessionUri;
+
+    entry.state = 'uploading';
+    entry.controller = new AbortController();
+    entry.startedAt = Date.now();
+    try {
+        await this._uploadChunks(entry);
+        entry.state = 'done';
+        entry.descriptor = {
+            object_path: entry.objectPath,
+            size: entry.file.size,
+            mime: entry.file.type || 'application/octet-stream',
+            original_name: entry.file.name,
+            file_uuid: entry.fileUuid,
+            uploaded_at: new Date().toISOString(),
+        };
+        entry.row.classList.add('is-done');
+        entry.row.querySelector('.gfgcs-status').textContent = 'Uploaded';
+        entry.row.querySelector('.gfgcs-progress-bar').style.width = '100%';
+    } catch (e) {
+        this._fail(entry, e);
+    } finally {
+        this._refreshHidden();
+    }
+};
+
+GFGCSUploader.prototype._uploadChunks = async function (entry) {
+    let offset = 0;
+    const total = entry.file.size;
+    let attempt = 0;
+
+    while (offset < total) {
+        const end = Math.min(offset + CHUNK_SIZE, total);
+        const chunk = entry.file.slice(offset, end);
+        try {
+            const result = await this._putChunk(entry, chunk, offset, end - 1, total);
+            if (result.done) { offset = total; break; }
+            offset = result.nextByte;
+            attempt = 0;
+        } catch (e) {
+            if (entry.state === 'removed') return;
+            attempt++;
+            if (attempt > MAX_RETRIES) throw e;
+            entry.state = 'retrying';
+            entry.row.querySelector('.gfgcs-status').textContent = 'Retrying… (attempt ' + attempt + ')';
+            await new Promise(r => setTimeout(r, backoffMs(attempt)));
+            try {
+                offset = await this._queryResumePosition(entry, total);
+                entry.state = 'uploading';
+            } catch (qe) {
+                throw qe;
+            }
+        }
+    }
+};
+
+GFGCSUploader.prototype._putChunk = async function (entry, chunk, startByte, endByte, total) {
+    const res = await fetch(entry.sessionUri, {
+        method: 'PUT',
+        headers: { 'Content-Range': 'bytes ' + startByte + '-' + endByte + '/' + total },
+        body: chunk,
+        signal: entry.controller.signal,
+    });
+    if (res.status === 200 || res.status === 201) {
+        return { done: true };
+    }
+    if (res.status === 308) {
+        const range = res.headers.get('Range');
+        const next = parseRangeHeader(range);
+        entry.row.querySelector('.gfgcs-progress-bar').style.width = ((next / total) * 100).toFixed(1) + '%';
+        return { done: false, nextByte: next };
+    }
+    if (res.status === 410) {
+        const err = new Error('Session expired'); err.code = 'session_expired'; throw err;
+    }
+    if (res.status >= 500 || res.status === 0) {
+        throw new Error('Transient HTTP ' + res.status);
+    }
+    throw new Error('Upload failed: HTTP ' + res.status);
+};
+
+GFGCSUploader.prototype._queryResumePosition = async function (entry, total) {
+    const res = await fetch(entry.sessionUri, {
+        method: 'PUT',
+        headers: { 'Content-Range': 'bytes */' + total, 'Content-Length': '0' },
+    });
+    if (res.status === 200 || res.status === 201) {
+        return total;
+    }
+    if (res.status === 308) {
+        return parseRangeHeader(res.headers.get('Range'));
+    }
+    throw new Error('Resume query failed: HTTP ' + res.status);
+};
+
+GFGCSUploader.prototype._fail = function (entry, err) {
+    entry.state = 'error';
+    entry.error = err;
+    entry.row.classList.add('is-error');
+    entry.row.querySelector('.gfgcs-status').textContent = (err && err.message) || 'Upload failed';
+    this._refreshHidden();
+};
 
 if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => {
