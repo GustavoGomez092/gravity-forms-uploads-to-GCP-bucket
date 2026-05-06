@@ -9,6 +9,7 @@ require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-oauth.php';
 require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
 require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-proxy.php';
 require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-merge-tags.php';
+require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-cleanup.php';
 
 class GFGCS_Addon extends GFAddOn {
     protected $_version           = GFGCS_VERSION;
@@ -38,6 +39,7 @@ class GFGCS_Addon extends GFAddOn {
         require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-ajax.php';
         GFGCS_Ajax::register();
         GFGCS_Merge_Tags::register();
+        GFGCS_Cleanup::register();
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
         add_filter( 'gform_validation', array( $this, 'validate_submission' ) );
         add_action( 'rest_api_init', array( 'GFGCS_Proxy', 'register_routes' ) );

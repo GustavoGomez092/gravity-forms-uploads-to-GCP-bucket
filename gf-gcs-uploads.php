@@ -35,3 +35,8 @@ register_activation_hook( __FILE__, function () {
         update_option( 'gfgcs_signing_secret', wp_generate_password( 64, true, true ), false );
     }
 } );
+
+register_deactivation_hook( __FILE__, function () {
+    require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-cleanup.php';
+    GFGCS_Cleanup::unregister();
+} );
