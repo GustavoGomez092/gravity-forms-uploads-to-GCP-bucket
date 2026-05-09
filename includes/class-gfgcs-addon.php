@@ -45,16 +45,7 @@ class GFGCS_Addon extends GFAddOn {
 
     public function plugin_settings_fields() {
         $current = GFGCS_Settings::get_global();
-        $sa_blurb = '';
-        if ( is_array( $current['sa'] ) ) {
-            $disp     = GFGCS_Settings::redact_sa_for_display( $current['sa'] );
-            $sa_blurb = sprintf(
-                /* translators: 1: client email, 2: project id */
-                esc_html__( 'Currently configured: %1$s (project %2$s). Paste new JSON below to replace.', 'gf-gcs-uploads' ),
-                esc_html( $disp['client_email'] ),
-                esc_html( $disp['project_id'] )
-            );
-        }
+        $configured = is_array( $current['sa'] );
 
         // Render the SA JSON input as raw HTML rather than a Settings v2 textarea.
         // GF's get_posted_values() runs maybe_decode_json() on every _gform_setting_*
@@ -62,10 +53,18 @@ class GFGCS_Addon extends GFAddOn {
         // esc_textarea() on re-render. Using a custom-named textarea (no
         // _gform_setting_ prefix) bypasses that pipeline entirely; we read it from
         // $_POST['gfgcs_sa_json_raw'] in update_plugin_settings().
-        $sa_textarea_html = '<textarea name="gfgcs_sa_json_raw" rows="10" cols="80" class="large-text code" autocomplete="off" spellcheck="false" placeholder="' . esc_attr__( 'Paste the contents of the service-account JSON key here.', 'gf-gcs-uploads' ) . '"></textarea>';
-        if ( $sa_blurb !== '' ) {
-            $sa_textarea_html .= '<p class="description">' . $sa_blurb . '</p>';
+        $sa_textarea_html = '';
+        if ( $configured ) {
+            $disp = GFGCS_Settings::redact_sa_for_display( $current['sa'] );
+            $sa_textarea_html .= '<div style="background:#edfaef;border:1px solid #2c8a3a;border-radius:4px;padding:10px 14px;margin-bottom:8px;color:#155724;">'
+                . '<strong style="color:#1f7032;">&#10003; Service account configured</strong><br>'
+                . esc_html( $disp['client_email'] ) . ' &middot; project <code>' . esc_html( $disp['project_id'] ) . '</code>'
+                . '</div>';
+            $placeholder = __( 'Leave blank to keep existing configuration. Paste new JSON to replace.', 'gf-gcs-uploads' );
+        } else {
+            $placeholder = __( 'Paste the contents of the service-account JSON key here.', 'gf-gcs-uploads' );
         }
+        $sa_textarea_html .= '<textarea name="gfgcs_sa_json_raw" rows="10" cols="80" class="large-text code" autocomplete="off" spellcheck="false" placeholder="' . esc_attr( $placeholder ) . '"></textarea>';
 
         return array(
             array(
