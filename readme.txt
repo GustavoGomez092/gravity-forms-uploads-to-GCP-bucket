@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.2
+Stable tag: 0.1.3
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,9 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.1.3 =
+* Fix: pasting service-account JSON into the settings page no longer triggers a fatal error. Gravity Forms' Settings v2 framework auto-decodes any JSON-shaped POST value via `maybe_decode_json()`, converting our SA JSON string into a PHP array — which then crashed `esc_textarea()` on re-render. The SA JSON field now renders as a custom-named textarea outside the Settings v2 input pipeline; save logic reads it directly from `$_POST['gfgcs_sa_json_raw']`.
 
 = 0.1.2 =
 * Fix: hard-error when `AUTH_KEY` and `SECURE_AUTH_KEY` are missing from `wp-config.php` instead of falling back to a degraded site-URL-based encryption key. Surfaces a clear actionable error to the admin.

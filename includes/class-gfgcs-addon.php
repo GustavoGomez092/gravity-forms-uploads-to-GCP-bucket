@@ -56,17 +56,27 @@ class GFGCS_Addon extends GFAddOn {
             );
         }
 
+        // Render the SA JSON input as raw HTML rather than a Settings v2 textarea.
+        // GF's get_posted_values() runs maybe_decode_json() on every _gform_setting_*
+        // value and converts JSON-shaped strings into arrays — which then crashes
+        // esc_textarea() on re-render. Using a custom-named textarea (no
+        // _gform_setting_ prefix) bypasses that pipeline entirely; we read it from
+        // $_POST['gfgcs_sa_json_raw'] in update_plugin_settings().
+        $sa_textarea_html = '<textarea name="gfgcs_sa_json_raw" rows="10" cols="80" class="large-text code" autocomplete="off" spellcheck="false" placeholder="' . esc_attr__( 'Paste the contents of the service-account JSON key here.', 'gf-gcs-uploads' ) . '"></textarea>';
+        if ( $sa_blurb !== '' ) {
+            $sa_textarea_html .= '<p class="description">' . $sa_blurb . '</p>';
+        }
+
         return array(
             array(
                 'title'  => esc_html__( 'Google Cloud Storage Credentials', 'gf-gcs-uploads' ),
                 'fields' => array(
                     array(
-                        'name'        => 'sa_json',
+                        'name'        => 'sa_json_html',
                         'label'       => esc_html__( 'Service Account JSON', 'gf-gcs-uploads' ),
-                        'type'        => 'textarea',
-                        'class'       => 'large',
+                        'type'        => 'html',
+                        'html'        => $sa_textarea_html,
                         'tooltip'     => esc_html__( 'Paste the contents of the JSON key for a service account with Storage Object Admin on your bucket.', 'gf-gcs-uploads' ),
-                        'description' => $sa_blurb,
                     ),
                     array(
                         'name'  => 'test_connection',
@@ -154,7 +164,9 @@ class GFGCS_Addon extends GFAddOn {
             'redirect_lifetime'     => min( 10080, max( 1, intval( $settings['redirect_lifetime'] ?? 15 ) ) ),
             'trusted_proxy_header'  => in_array( $tph, array( 'none', 'x_forwarded_for', 'cf_connecting_ip' ), true ) ? $tph : 'none',
         );
-        $sa_raw = trim( (string) ( $settings['sa_json'] ?? '' ) );
+        // SA JSON arrives via our custom-named textarea (see plugin_settings_fields()
+        // for why we bypass the Settings v2 input pipeline for this field).
+        $sa_raw = isset( $_POST['gfgcs_sa_json_raw'] ) ? trim( wp_unslash( (string) $_POST['gfgcs_sa_json_raw'] ) ) : '';
         if ( $sa_raw !== '' ) {
             $sa = json_decode( $sa_raw, true );
             if ( ! is_array( $sa ) ) {
