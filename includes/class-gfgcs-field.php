@@ -93,3 +93,13 @@ add_action( 'gform_enqueue_scripts', function ( $form ) {
     wp_enqueue_script( 'gfgcs-uploader', GFGCS_PLUGIN_URL . 'assets/js/gfgcs-uploader.js', array(), GFGCS_VERSION, true );
     wp_scripts()->add_data( 'gfgcs-uploader', 'type', 'module' );
 }, 10, 1 );
+
+add_action( 'gform_editor_js', function () {
+    wp_enqueue_script(
+        'gfgcs-editor',
+        GFGCS_PLUGIN_URL . 'assets/js/gfgcs-editor.js',
+        array( 'jquery' ),
+        GFGCS_VERSION,
+        true
+    );
+} );
