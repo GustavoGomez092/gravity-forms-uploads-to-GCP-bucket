@@ -6,7 +6,7 @@
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777BB4)
 ![Gravity Forms](https://img.shields.io/badge/Gravity%20Forms-required-orange)
 ![License](https://img.shields.io/badge/license-GPL--2.0--or--later-green)
-![Version](https://img.shields.io/badge/version-0.2.2-informational)
+![Version](https://img.shields.io/badge/version-0.2.3-informational)
 
 A WordPress plugin that adds a **GCS Upload** field to Gravity Forms. The browser uploads files straight to Google Cloud Storage using a short-lived, V4-signed resumable URL — your PHP workers and local disk are completely bypassed.
 
@@ -240,6 +240,9 @@ In `wp_options`, encrypted with a key derived from `AUTH_KEY` + `SECURE_AUTH_KEY
 ## Changelog
 
 See [`readme.txt`](readme.txt) for the full changelog. Highlights:
+
+### 0.2.3
+- Fix: entry-detail screen renders the per-file proxy URLs again. The `gform_entry_field_value` filter was decoding the already-formatted `<ul>` returned by `get_value_entry_detail()` as JSON, getting null, and wiping the cell. Filter now reads the raw descriptor from `$entry[$field->id]` directly.
 
 ### 0.2.2
 - Fix: `inputType=fileupload` corruption no longer breaks submission — `get_input_type()` hard-pins to `gcs_upload`.

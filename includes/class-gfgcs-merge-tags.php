@@ -28,8 +28,15 @@ class GFGCS_Merge_Tags {
     /** Override the entry-display value so admin-detail screens use proxy URLs too. */
     public static function filter_entry_field_value( $value, $field, $entry, $form ) {
         if ( ! $field || $field->type !== 'gcs_upload' ) return $value;
-        $files = is_string( $value ) ? json_decode( $value, true ) : ( is_array( $value ) ? $value : array() );
-        if ( ! is_array( $files ) ) return '';
+        // Read the raw descriptor JSON from the entry directly. By the time this
+        // filter fires, $value has already been transformed by
+        // GF_Field_GCSUpload::get_value_entry_detail() into a `<ul>` of names,
+        // so json_decode($value) would fail and the filter would wipe the
+        // display. The entry array always contains the original JSON keyed by
+        // field id (string).
+        $raw   = isset( $entry[ (string) $field->id ] ) ? $entry[ (string) $field->id ] : '';
+        $files = is_string( $raw ) && $raw !== '' ? json_decode( $raw, true ) : array();
+        if ( ! is_array( $files ) || empty( $files ) ) return $value;
         $secret = GFGCS_Settings::signing_secret();
         $links  = array();
         foreach ( $files as $i => $f ) {
