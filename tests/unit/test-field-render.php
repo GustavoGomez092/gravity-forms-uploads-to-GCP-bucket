@@ -26,6 +26,27 @@ namespace {
     if ( ! function_exists( 'add_filter' ) ) {
         function add_filter( $tag, $cb, $priority = 10, $args = 1 ) {}
     }
+    if ( ! function_exists( 'absint' ) ) {
+        function absint( $v ) { return abs( intval( $v ) ); }
+    }
+    if ( ! function_exists( 'wp_create_nonce' ) ) {
+        function wp_create_nonce( $a ) { return 'noncestub'; }
+    }
+    if ( ! function_exists( 'admin_url' ) ) {
+        function admin_url( $p ) { return 'http://e/'.$p; }
+    }
+    if ( ! function_exists( 'esc_attr' ) ) {
+        function esc_attr( $v ) { return htmlspecialchars( $v, ENT_QUOTES ); }
+    }
+    if ( ! function_exists( 'esc_html__' ) ) {
+        function esc_html__( $s, $d = '' ) { return $s; }
+    }
+    if ( ! function_exists( 'esc_html' ) ) {
+        function esc_html( $s ) { return htmlspecialchars( $s ); }
+    }
+    if ( ! function_exists( 'wp_json_encode' ) ) {
+        function wp_json_encode( $d ) { return json_encode( $d ); }
+    }
 
     require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-field.php';
 }
@@ -69,6 +90,21 @@ namespace GFGCS\Tests\Unit {
             $f->maxFileSize   = 5;
             $f->maxFiles      = 0;
             $this->assertSame( 'Max. file size: 5 MB.', $f->render_rules_caption() );
+        }
+
+        public function test_get_field_input_single_file_uses_native_classes() {
+            $f = new \GF_Field_GCSUpload();
+            $f->id = 53;
+            $f->multipleFiles = false;
+            $f->maxFileSize = 2;
+
+            $html = $f->get_field_input( array( 'id' => 8 ), '', null );
+
+            $this->assertStringContainsString( 'ginput_container_fileupload', $html );
+            $this->assertStringContainsString( 'ginput_container_fileupload_gcs', $html );
+            $this->assertStringContainsString( 'Max. file size: 2 MB.', $html );
+            $this->assertStringContainsString( 'name="input_53"', $html );
+            $this->assertStringNotContainsString( 'gform_drop_area', $html );
         }
     }
 }

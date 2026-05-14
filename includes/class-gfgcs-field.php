@@ -46,35 +46,52 @@ class GF_Field_GCSUpload extends GF_Field {
         $multiple  = ! empty( $this->multipleFiles );
         $max_files = max( 1, intval( $this->maxFiles ?: 20 ) );
         $max_size  = max( 1, intval( $this->maxFileSize ?: 1024 ) );
-        $mimes     = $this->allowedMimes ?: '';
+        $exts_str  = (string) ( $this->allowedExtensions ?? '' );
         $name      = "input_{$field_id}";
         $value_str = is_string( $value ) ? $value : ( is_array( $value ) ? wp_json_encode( $value ) : '' );
 
         $config = array(
-            'formId'    => $form_id,
-            'fieldId'   => $field_id,
-            'multiple'  => $multiple,
-            'maxFiles'  => $max_files,
-            'maxSize'   => $max_size * 1024 * 1024,
-            'mimes'     => array_filter( array_map( 'trim', explode( ',', $mimes ) ) ),
-            'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-            'nonce'     => wp_create_nonce( 'gfgcs_init_' . $form_id ),
+            'formId'            => $form_id,
+            'fieldId'           => $field_id,
+            'multiple'          => $multiple,
+            'maxFiles'          => $max_files,
+            'maxSize'           => $max_size * 1024 * 1024,
+            'allowedExtensions' => array_values( array_filter( array_map(
+                function ( $e ) { return strtolower( ltrim( trim( $e ), '.' ) ); },
+                explode( ',', $exts_str )
+            ) ) ),
+            'ajaxUrl'           => admin_url( 'admin-ajax.php' ),
+            'nonce'             => wp_create_nonce( 'gfgcs_init_' . $form_id ),
         );
 
+        $config_attr = esc_attr( wp_json_encode( $config ) );
+        $caption     = esc_html( $this->render_rules_caption() );
+
+        if ( $multiple ) {
+            return $this->render_multifile_markup( $name, $value_str, $config_attr, $caption );
+        }
+        return $this->render_singlefile_markup( $name, $value_str, $config_attr, $caption );
+    }
+
+    private function render_singlefile_markup( $name, $value_str, $config_attr, $caption ) {
         return sprintf(
-            '<div class="ginput_container ginput_container_gcs_upload" data-gfgcs-config="%s">'
-            . '<div class="gfgcs-dropzone" tabindex="0" role="button">%s</div>'
-            . '<ul class="gfgcs-files" aria-live="polite"></ul>'
-            . '<input type="hidden" name="%s" id="%s" class="gfgcs-hidden" value="%s" />'
-            . '<noscript><p>%s</p></noscript>'
+            '<div class="ginput_container ginput_container_fileupload ginput_container_fileupload_gcs" data-gfgcs-config="%1$s">'
+            . '<input type="file" class="gfgcs-file-input" />'
+            . '<span class="gfield_description gform_fileupload_rules">%2$s</span>'
+            . '<div class="validation_message gfgcs-validation" aria-live="polite"></div>'
+            . '<input type="hidden" name="%3$s" class="gfgcs-hidden" value="%4$s" />'
+            . '<noscript><p>%5$s</p></noscript>'
             . '</div>',
-            esc_attr( wp_json_encode( $config ) ),
-            esc_html__( 'Drop files here or click to browse', 'gf-gcs-uploads' ),
-            esc_attr( $name ),
+            $config_attr,
+            $caption,
             esc_attr( $name ),
             esc_attr( $value_str ),
             esc_html__( 'JavaScript is required to upload files securely.', 'gf-gcs-uploads' )
         );
+    }
+
+    private function render_multifile_markup( $name, $value_str, $config_attr, $caption ) {
+        return ''; // placeholder; implemented in Task 10
     }
 
     public function get_value_entry_detail( $value, $currency = '', $use_text = false, $format = 'html', $media = 'screen' ) {
