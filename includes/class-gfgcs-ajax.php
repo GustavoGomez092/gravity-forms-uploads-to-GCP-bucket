@@ -191,6 +191,19 @@ class GFGCS_Ajax {
         return false;
     }
 
+    public static function ext_allowed( $filename, array $allowed_exts ) {
+        $normalized = array();
+        foreach ( $allowed_exts as $e ) {
+            $e = strtolower( ltrim( trim( (string) $e ), '.' ) );
+            if ( $e !== '' ) { $normalized[] = $e; }
+        }
+        if ( empty( $normalized ) ) { return true; }
+        $dot = strrpos( $filename, '.' );
+        if ( $dot === false || $dot === strlen( $filename ) - 1 ) { return false; }
+        $ext = strtolower( substr( $filename, $dot + 1 ) );
+        return in_array( $ext, $normalized, true );
+    }
+
     private static function uuidv4() {
         $b = random_bytes( 16 );
         $b[6] = chr( ( ord( $b[6] ) & 0x0f ) | 0x40 );
