@@ -34,12 +34,14 @@ class GFGCS_Validator {
 
         // Build a regex pattern from the prefix template:
         // literal segments are escaped, {tokens} become [^/]* (matches a single path segment).
+        // Token names must be A-Za-z_+ to cover GFGCS_Settings::PREFIX_TOKENS, which
+        // includes uppercase {Y} alongside lowercase {m}, {d}, {submission_uuid}, etc.
         $prefix_match = rtrim( $prefix, '/' );
-        $pattern_parts = preg_split( '/(\{[a-z_]+\})/', $prefix_match, -1, PREG_SPLIT_DELIM_CAPTURE );
+        $pattern_parts = preg_split( '/(\{[A-Za-z_]+\})/', $prefix_match, -1, PREG_SPLIT_DELIM_CAPTURE );
         $pattern = '';
         foreach ( $pattern_parts as $part ) {
             if ( $part === '' ) continue;
-            if ( preg_match( '/^\{[a-z_]+\}$/', $part ) ) {
+            if ( preg_match( '/^\{[A-Za-z_]+\}$/', $part ) ) {
                 $pattern .= '[^/]*';
             } else {
                 $pattern .= preg_quote( $part, '#' );

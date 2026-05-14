@@ -94,6 +94,26 @@ class ValidatorTest extends TestCase {
         $this->assertSame( 'tampered_path', $err['code'] );
     }
 
+    public function test_uppercase_year_token_is_recognized_in_prefix_template() {
+        // Regression: validator's regex builder used [a-z_]+ which failed to recognize
+        // the uppercase {Y} token from PREFIX_TOKENS, treating it as a literal "\{Y\}"
+        // in the regex and rejecting every legitimate upload as tampered_path.
+        $files = array( array(
+            'object_path'   => 'gravityforms/2026/05/sub-uuid-abc/4/u1/a.jpg',
+            'size'          => 100,
+            'file_uuid'     => 'u1',
+            'mime'          => 'image/jpeg',
+            'original_name' => 'a.jpg',
+            'uploaded_at'   => 'x',
+        ) );
+        $c = new FakeClient();
+        $c->responses['gravityforms/2026/05/sub-uuid-abc/4/u1/a.jpg'] = array(
+            'size' => 100, 'content_type' => 'image/jpeg', 'name' => 'a.jpg',
+        );
+        $err = \GFGCS_Validator::verify_field( $files, 'b', 'gravityforms/{Y}/{m}/{submission_uuid}/', $c, false, 4 );
+        $this->assertNull( $err );
+    }
+
     public function test_field_id_mismatch_is_rejected() {
         // Path's field-id segment (5) doesn't match the field being validated (4).
         $files = array( array(

@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.2.4
+Stable tag: 0.2.5
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,9 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.5 =
+* Fix: validator now recognizes uppercase `{Y}` (year) in object-path prefix templates. The regex builder in `GFGCS_Validator::verify_field()` used `[a-z_]+` to detect template tokens, which silently treated `{Y}` as a literal `\{Y\}` in the compiled regex. Templates like `gravityforms/{Y}/{m}/{submission_uuid}/` matched in the init endpoint (`GFGCS_Settings::expand_prefix()` recognizes `Y`/`m`/`d`) but every legitimate upload was then rejected as `tampered_path` ("Submission integrity check failed."). Character class is now `[A-Za-z_]+` to cover all `PREFIX_TOKENS`.
 
 = 0.2.4 =
 * Fix: `gcs_upload` fields with persisted `inputType=fileupload` corruption (from the pre-0.2.1 editor bug) now render correctly. `GF_Fields::create()` reads `inputType` first and falls back to `type`, so the corrupted property caused GF to instantiate `GF_Field_FileUpload` instead of our class — our markup never rendered and GF's native plupload hijacked the dropzone, uploading to `?gf_page=…` instead of GCS. Submission then failed with "This field is required." because no descriptor reached our hidden input. Two-layer fix: (a) one-time migration on activation strips the bad `inputType` from every affected field in every form; (b) runtime `gform_form_post_get_meta` filter re-instantiates any field that still has the corruption.
