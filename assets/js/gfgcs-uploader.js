@@ -67,8 +67,64 @@
     }
 
     function handleFiles(state, files) {
-        // Implemented in Task 15.
-        console.log('[gfgcs] files selected', files);
+        state.validation.textContent = '';
+        if (!files.length) return;
+        var accepted = [];
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            var err = validateFile(state, f, accepted.length);
+            if (err) {
+                state.validation.textContent = err;
+                return; // stop on first error, matches native behavior
+            }
+            accepted.push(f);
+        }
+        accepted.forEach(function (f) {
+            var id = state.nextId++;
+            state.entries.set(id, {
+                id: id,
+                file: f,
+                status: 'queued',
+                progress: 0,
+                error: null,
+                objectKey: null,
+                descriptor: null,
+                xhr: null,
+            });
+        });
+        render(state);
+        startNextUpload(state);
+    }
+
+    function validateFile(state, file, alreadyAccepted) {
+        var cfg = state.cfg;
+        if (cfg.multiple) {
+            var totalSoFar = state.entries.size + alreadyAccepted;
+            if (totalSoFar >= cfg.maxFiles) {
+                return 'Maximum number of files reached';
+            }
+        } else {
+            if (state.entries.size + alreadyAccepted >= 1) {
+                return 'Maximum number of files reached';
+            }
+        }
+        if (file.size > cfg.maxSize) {
+            var mb = Math.round(cfg.maxSize / (1024 * 1024));
+            return 'File exceeds the maximum upload size (' + mb + ' MB).';
+        }
+        if (cfg.allowedExtensions && cfg.allowedExtensions.length) {
+            var name = file.name.toLowerCase();
+            var dot = name.lastIndexOf('.');
+            var ext = dot < 0 ? '' : name.slice(dot + 1);
+            if (cfg.allowedExtensions.indexOf(ext) < 0) {
+                return 'This type of file is not allowed.';
+            }
+        }
+        return null;
+    }
+
+    function startNextUpload(state) {
+        // Implemented in Task 16.
     }
 
     function render(state) {
