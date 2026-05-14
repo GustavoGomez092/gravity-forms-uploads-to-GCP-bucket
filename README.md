@@ -95,18 +95,37 @@ This plugin replaces that path. The browser PUTs directly to GCS over a signed r
 1. Clone or download this repo into `wp-content/plugins/gf-gcs-uploads/`.
 2. Activate the plugin in **Plugins → Installed Plugins**.
 3. Create a service account in GCP and grant it `Storage Object Admin` on the target bucket. Download the JSON key.
-4. Configure CORS on the bucket to allow `PUT` from your site origin:
+4. Configure CORS on the bucket to allow the resumable upload handshake from your site origin(s):
    ```json
    [
      {
-       "origin": ["https://your-site.example"],
-       "method": ["PUT", "POST", "OPTIONS"],
-       "responseHeader": ["Content-Type", "Content-Range", "X-Upload-Content-Length", "X-Upload-Content-Type"],
+       "origin": [
+         "https://your-site.example",
+         "https://staging.your-site.example"
+       ],
+       "method": ["GET", "PUT", "POST", "OPTIONS"],
+       "responseHeader": [
+         "Location",
+         "Content-Type",
+         "Content-Range",
+         "ETag",
+         "x-goog-resumable",
+         "X-Upload-Content-Length",
+         "X-Upload-Content-Type"
+       ],
        "maxAgeSeconds": 3600
      }
    ]
    ```
-   Apply with: `gsutil cors set cors.json gs://your-bucket`
+   List every scheme+host+port the form is served from — `origin` does not support wildcards. `Location` and `x-goog-resumable` are required: the browser reads `Location` to learn the upload session URL returned by the `POST` init, and `x-goog-resumable` is the custom request header sent on init.
+
+   Apply with:
+   ```bash
+   gsutil cors set cors.json gs://your-bucket
+   # or, with the newer gcloud:
+   gcloud storage buckets update gs://your-bucket --cors-file=cors.json
+   ```
+   Verify with `gsutil cors get gs://your-bucket`.
 5. Go to **Forms → Settings → GCS Storage**, paste the JSON, set the default bucket name, and click **Test Connection**.
 
 ## Configuration
