@@ -190,16 +190,20 @@ OAuth token-exchange failures are typed (`GFGCS_OAuth_Exception`) and classified
 ## Development
 
 ```bash
+# Install dev dependencies (PHPUnit + Brain Monkey + Mockery for PHP;
+# Vitest + jsdom for JS). Both are dev-only — runtime install does not
+# require either.
 composer install
 npm install
 
 # Run the PHP test suite
 ./vendor/bin/phpunit
 
-# Build / watch frontend assets
-npm run build
-npm run watch
+# Run the JS test suite
+npm test
 ```
+
+No build step. Frontend assets (`assets/js/*.js`, `assets/css/*.css`) are vanilla and load directly. Both `vendor/` and `node_modules/` are gitignored.
 
 The plugin source lives under `includes/`:
 
