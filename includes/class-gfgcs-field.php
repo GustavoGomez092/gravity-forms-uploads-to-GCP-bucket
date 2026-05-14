@@ -31,6 +31,15 @@ class GF_Field_GCSUpload extends GF_Field {
         );
     }
 
+    public function render_rules_caption() {
+        $max_mb = max( 1, intval( $this->maxFileSize ?: 0 ) );
+        $size_str = sprintf( 'Max. file size: %d MB.', $max_mb );
+        if ( ! empty( $this->multipleFiles ) && intval( $this->maxFiles ?: 0 ) > 0 ) {
+            return $size_str . ' ' . sprintf( 'Maximum number of files: %d.', intval( $this->maxFiles ) );
+        }
+        return $size_str;
+    }
+
     public function get_field_input( $form, $value = '', $entry = null ) {
         $form_id   = absint( $form['id'] );
         $field_id  = intval( $this->id );

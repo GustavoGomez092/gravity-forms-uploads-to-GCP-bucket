@@ -47,5 +47,28 @@ namespace GFGCS\Tests\Unit {
             $this->assertNotContains( 'gcs_mime_setting', $settings );
             $this->assertNotContains( 'gcs_max_files_setting', $settings );
         }
+
+        public function test_rules_caption_single_file_shows_max_size_only() {
+            $f = new \GF_Field_GCSUpload();
+            $f->multipleFiles = false;
+            $f->maxFileSize   = 5;
+            $this->assertSame( 'Max. file size: 5 MB.', $f->render_rules_caption() );
+        }
+
+        public function test_rules_caption_multi_file_with_cap_shows_both() {
+            $f = new \GF_Field_GCSUpload();
+            $f->multipleFiles = true;
+            $f->maxFileSize   = 5;
+            $f->maxFiles      = 10;
+            $this->assertSame( 'Max. file size: 5 MB. Maximum number of files: 10.', $f->render_rules_caption() );
+        }
+
+        public function test_rules_caption_multi_file_without_cap_shows_size_only() {
+            $f = new \GF_Field_GCSUpload();
+            $f->multipleFiles = true;
+            $f->maxFileSize   = 5;
+            $f->maxFiles      = 0;
+            $this->assertSame( 'Max. file size: 5 MB.', $f->render_rules_caption() );
+        }
     }
 }
