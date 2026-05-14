@@ -56,4 +56,71 @@ class MigrationTest extends TestCase {
         $this->assertSame( '', $exts );
         $this->assertSame( array( 'image/jpeg; charset=binary' ), $unmapped );
     }
+
+    public function test_migrate_forms_translates_per_field_allowed_mimes() {
+        $field          = new \stdClass();
+        $field->id      = 5;
+        $field->type    = 'gcs_upload';
+        $field->allowedMimes = 'image/jpeg, application/pdf';
+
+        $forms = array(
+            array( 'id' => 12, 'title' => 'Test', 'fields' => array( $field ) ),
+        );
+
+        list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
+
+        $f = $migrated[0]['fields'][0];
+        $this->assertSame( 'jpg,jpeg,pdf', $f->allowedExtensions );
+        $this->assertObjectNotHasAttribute( 'allowedMimes', $f );
+        $this->assertSame( array(), $warnings );
+    }
+
+    public function test_migrate_forms_records_unmappable_warnings() {
+        $field          = new \stdClass();
+        $field->id      = 5;
+        $field->type    = 'gcs_upload';
+        $field->allowedMimes = 'application/x-custom';
+
+        $forms = array(
+            array( 'id' => 12, 'title' => 'Test', 'fields' => array( $field ) ),
+        );
+
+        list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
+
+        $this->assertSame( '', $migrated[0]['fields'][0]->allowedExtensions );
+        $this->assertCount( 1, $warnings );
+        $this->assertSame( 12, $warnings[0]['form_id'] );
+        $this->assertSame( 5, $warnings[0]['field_id'] );
+        $this->assertSame( 'application/x-custom', $warnings[0]['mimes_value'] );
+    }
+
+    public function test_migrate_forms_skips_non_gcs_fields() {
+        $field         = new \stdClass();
+        $field->id     = 5;
+        $field->type   = 'fileupload';
+        $field->allowedMimes = 'image/jpeg';
+
+        $forms = array(
+            array( 'id' => 12, 'title' => 'T', 'fields' => array( $field ) ),
+        );
+
+        list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
+        $this->assertObjectHasAttribute( 'allowedMimes', $migrated[0]['fields'][0] );
+        $this->assertSame( array(), $warnings );
+    }
+
+    public function test_migrate_forms_is_idempotent_when_no_allowed_mimes() {
+        $field       = new \stdClass();
+        $field->id   = 5;
+        $field->type = 'gcs_upload';
+        $field->allowedExtensions = 'jpg,jpeg,pdf';
+
+        $forms = array(
+            array( 'id' => 12, 'title' => 'T', 'fields' => array( $field ) ),
+        );
+
+        list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
+        $this->assertSame( 'jpg,jpeg,pdf', $migrated[0]['fields'][0]->allowedExtensions );
+        $this->assertSame( array(), $warnings );
+    }
 }
