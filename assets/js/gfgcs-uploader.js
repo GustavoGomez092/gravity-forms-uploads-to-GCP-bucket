@@ -282,6 +282,34 @@
         });
     }
 
+    function removeEntry(state, id) {
+        var entry = state.entries.get(id);
+        if (!entry) return;
+
+        if (entry.status === 'uploading' && entry.xhr) {
+            entry.xhr.abort();
+            // The xhr handler will delete the entry and call abort cleanup.
+            sendAbort(state, entry);
+            return;
+        }
+        if (entry.status === 'done' && entry.objectKey) {
+            sendAbort(state, entry);
+        }
+        state.entries.delete(id);
+        render(state);
+    }
+
+    function sendAbort(state, entry) {
+        if (!entry.objectKey) return;
+        var body = new URLSearchParams();
+        body.set('action', 'gfgcs_abort');
+        body.set('form_id', state.cfg.formId);
+        body.set('nonce', state.cfg.nonce);
+        body.set('submission_uuid', state.submissionUuid);
+        body.set('object_key', entry.objectKey);
+        fetch(state.cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body }).catch(function () {});
+    }
+
     function attachAll() {
         document.querySelectorAll('.ginput_container_fileupload_gcs[data-gfgcs-config]').forEach(init);
     }
