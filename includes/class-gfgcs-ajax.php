@@ -204,6 +204,16 @@ class GFGCS_Ajax {
         return in_array( $ext, $normalized, true );
     }
 
+    public static function ext_disallowed( $filename ) {
+        $denied = class_exists( 'GFCommon' ) && method_exists( 'GFCommon', 'get_disallowed_file_extensions' )
+            ? (array) \GFCommon::get_disallowed_file_extensions()
+            : array( 'php', 'php3', 'php4', 'php5', 'php7', 'phtml', 'phar', 'js', 'pl', 'py', 'cgi', 'asp', 'aspx', 'sh', 'htaccess' );
+        $dot = strrpos( $filename, '.' );
+        if ( $dot === false || $dot === strlen( $filename ) - 1 ) { return false; }
+        $ext = strtolower( substr( $filename, $dot + 1 ) );
+        return in_array( $ext, array_map( 'strtolower', $denied ), true );
+    }
+
     private static function uuidv4() {
         $b = random_bytes( 16 );
         $b[6] = chr( ( ord( $b[6] ) & 0x0f ) | 0x40 );

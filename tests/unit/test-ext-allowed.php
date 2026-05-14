@@ -43,4 +43,18 @@ class ExtAllowedTest extends TestCase {
     public function test_trailing_dot_filename_is_rejected() {
         $this->assertFalse( \GFGCS_Ajax::ext_allowed( 'filename.', array( 'jpg' ) ) );
     }
+
+    public function test_ext_disallowed_rejects_hardcoded_dangerous_extensions() {
+        $this->assertTrue( \GFGCS_Ajax::ext_disallowed( 'shell.php' ) );
+        $this->assertTrue( \GFGCS_Ajax::ext_disallowed( 'shell.phtml' ) );
+        $this->assertTrue( \GFGCS_Ajax::ext_disallowed( 'config.htaccess' ) );
+        $this->assertTrue( \GFGCS_Ajax::ext_disallowed( 'mixed.PHP' ) );
+        $this->assertTrue( \GFGCS_Ajax::ext_disallowed( '.htaccess' ) );    // pure dotfile, no preceding name
+        $this->assertFalse( \GFGCS_Ajax::ext_disallowed( 'shell.php.' ) ); // trailing-dot has no real extension, not disallowed-by-extension
+    }
+
+    public function test_ext_disallowed_accepts_safe_extensions() {
+        $this->assertFalse( \GFGCS_Ajax::ext_disallowed( 'photo.jpg' ) );
+        $this->assertFalse( \GFGCS_Ajax::ext_disallowed( 'doc.pdf' ) );
+    }
 }
