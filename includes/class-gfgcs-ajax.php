@@ -81,6 +81,12 @@ class GFGCS_Ajax {
         if ( $size > $effective['max_size_bytes'] ) {
             wp_send_json_error( array( 'code' => 'size_exceeded', 'max' => $effective['max_size_bytes'] ), 422 );
         }
+        if ( self::ext_disallowed( $filename ) ) {
+            wp_send_json_error( array( 'code' => 'extension_not_allowed', 'message' => 'This type of file is not allowed.' ), 422 );
+        }
+        if ( ! self::ext_allowed( $filename, $effective['allowed_extensions'] ) ) {
+            wp_send_json_error( array( 'code' => 'extension_not_allowed', 'message' => 'This type of file is not allowed.' ), 422 );
+        }
         if ( ! self::mime_allowed( $mime, $effective['allowed_mimes'] ) ) {
             wp_send_json_error( array( 'code' => 'mime_not_allowed', 'allowed' => $effective['allowed_mimes'] ), 422 );
         }
@@ -145,17 +151,24 @@ class GFGCS_Ajax {
         $max_mb_form  = ( ! empty( $form_settings['override_size'] ) ) ? (int) ( $form_settings['max_size_mb'] ?? 0 ) : 0;
         $max_mb       = $max_mb_field ?: ( $max_mb_form ?: (int) $global['max_size_mb'] );
 
-        // MIMEs: per-field allowedMimes > per-form override > global.
-        $mimes_field = trim( (string) ( $field->allowedMimes ?? '' ) );
-        $mimes_form  = ( ! empty( $form_settings['override_mimes'] ) ) ? trim( (string) ( $form_settings['allowed_mimes'] ?? '' ) ) : '';
-        $mimes_str   = $mimes_field !== '' ? $mimes_field : ( $mimes_form !== '' ? $mimes_form : $global['allowed_mimes'] );
-        $mimes       = array_filter( array_map( 'trim', explode( ',', $mimes_str ) ) );
+        // MIMEs: per-form override > global (per-field allowedMimes removed; extension check handles per-field filtering).
+        $mimes_form = ( ! empty( $form_settings['override_mimes'] ) ) ? trim( (string) ( $form_settings['allowed_mimes'] ?? '' ) ) : '';
+        $mimes_str  = $mimes_form !== '' ? $mimes_form : $global['allowed_mimes'];
+        $mimes      = array_filter( array_map( 'trim', explode( ',', $mimes_str ) ) );
+
+        // Extensions: per-field allowedExtensions.
+        $exts_str = trim( (string) ( $field->allowedExtensions ?? '' ) );
+        $exts     = array_values( array_filter( array_map(
+            function ( $e ) { return strtolower( ltrim( trim( $e ), '.' ) ); },
+            explode( ',', $exts_str )
+        ) ) );
 
         return array(
-            'bucket'         => $bucket,
-            'prefix'         => $prefix,
-            'max_size_bytes' => $max_mb * 1024 * 1024,
-            'allowed_mimes'  => $mimes,
+            'bucket'             => $bucket,
+            'prefix'             => $prefix,
+            'max_size_bytes'     => $max_mb * 1024 * 1024,
+            'allowed_mimes'      => $mimes,
+            'allowed_extensions' => $exts,
         );
     }
 
