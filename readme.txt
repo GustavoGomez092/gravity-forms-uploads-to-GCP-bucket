@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.4
+Stable tag: 0.2.0
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,13 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.0 =
+* Feature: GCS Upload field now matches native Gravity Forms File Upload UI — settings live in the General section (Allowed file extensions, Enable Multi-File Upload, Maximum Number of Files, Maximum File Size), and the frontend renders the same dashed-box dropzone with cloud icon, "Select files" button, and per-file progress rows.
+* Feature: per-file remove button aborts the in-flight upload and deletes the partial object from GCS via a new `gfgcs_abort` AJAX endpoint.
+* Feature: inline validation messages match native GF copy ("File exceeds the maximum upload size", "This type of file is not allowed.", "Maximum number of files reached").
+* Change: per-field file-type filter switches from MIME types to extensions to match native GF. The global "Default Allowed MIME Types" and per-form "Override allowed MIMEs" settings are unchanged and continue to apply server-side as defense-in-depth.
+* Migration: one-time upgrade translates existing `allowedMimes` field values to `allowedExtensions` using a static map. Unmappable MIME types are surfaced in a dismissible admin notice; affected fields need manual reconfiguration.
 
 = 0.1.4 =
 * UX: when a service account is already configured, the settings page now shows a clear "✓ Service account configured" banner with the SA email and project ID above the textarea. The textarea placeholder clarifies that leaving it blank preserves the existing configuration.

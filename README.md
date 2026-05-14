@@ -6,7 +6,7 @@
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777BB4)
 ![Gravity Forms](https://img.shields.io/badge/Gravity%20Forms-required-orange)
 ![License](https://img.shields.io/badge/license-GPL--2.0--or--later-green)
-![Version](https://img.shields.io/badge/version-0.1.4-informational)
+![Version](https://img.shields.io/badge/version-0.2.0-informational)
 
 A WordPress plugin that adds a **GCS Upload** field to Gravity Forms. The browser uploads files straight to Google Cloud Storage using a short-lived, V4-signed resumable URL — your PHP workers and local disk are completely bypassed.
 
@@ -240,6 +240,11 @@ In `wp_options`, encrypted with a key derived from `AUTH_KEY` + `SECURE_AUTH_KEY
 ## Changelog
 
 See [`readme.txt`](readme.txt) for the full changelog. Highlights:
+
+### 0.2.0
+- Feature: field UI matches native Gravity Forms File Upload — General-tab settings, dashed-box dropzone, per-file progress rows with remove button.
+- Feature: `gfgcs_abort` AJAX endpoint allows mid-upload cancel + post-upload removal from GCS.
+- Change: per-field file-type filter is now extension-based. One-time 0.2.0 migration translates existing MIME values.
 
 ### 0.1.4
 - UX: settings page now shows a `✓ Service account configured` banner (SA email + project ID) when credentials are already saved.
