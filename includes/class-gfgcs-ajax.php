@@ -12,6 +12,7 @@ class GFGCS_Ajax {
         add_action( 'wp_ajax_gfgcs_test_connection', array( __CLASS__, 'test_connection' ) );
         add_action( 'wp_ajax_gfgcs_rotate_secret',   array( __CLASS__, 'rotate_secret' ) );
         self::register_init();
+        self::register_abort();
     }
 
     public static function test_connection() {
@@ -236,5 +237,41 @@ class GFGCS_Ajax {
         $b[6] = chr( ( ord( $b[6] ) & 0x0f ) | 0x40 );
         $b[8] = chr( ( ord( $b[8] ) & 0x3f ) | 0x80 );
         return vsprintf( '%s%s-%s-%s-%s-%s%s%s', str_split( bin2hex( $b ), 4 ) );
+    }
+
+    public static function register_abort() {
+        add_action( 'wp_ajax_gfgcs_abort',        array( __CLASS__, 'abort_upload' ) );
+        add_action( 'wp_ajax_nopriv_gfgcs_abort', array( __CLASS__, 'abort_upload' ) );
+    }
+
+    public static function abort_upload() {
+        $form_id = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
+        if ( ! $form_id || ! check_ajax_referer( 'gfgcs_init_' . $form_id, 'nonce', false ) ) {
+            wp_send_json_error( array( 'code' => 'bad_nonce' ), 403 );
+        }
+        $submission_uuid = isset( $_POST['submission_uuid'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['submission_uuid'] ) ) : '';
+        $object_key      = isset( $_POST['object_key'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['object_key'] ) ) : '';
+        if ( $object_key === '' || ! self::key_belongs_to_submission( $object_key, $submission_uuid ) ) {
+            wp_send_json_error( array( 'code' => 'forbidden' ), 403 );
+        }
+        $cfg = GFGCS_Settings::get_global();
+        if ( ! is_array( $cfg['sa'] ) || ! $cfg['default_bucket'] ) {
+            wp_send_json_error( array( 'code' => 'not_configured' ), 503 );
+        }
+        try {
+            $client = new GFGCS_GCS_Client( new GFGCS_OAuth( $cfg['sa'] ) );
+            $client->delete_object( $cfg['default_bucket'], $object_key );
+        } catch ( \Throwable $e ) {
+            wp_send_json_error( array( 'code' => 'delete_failed', 'message' => $e->getMessage() ), 502 );
+        }
+        wp_send_json_success( array( 'deleted' => true ) );
+    }
+
+    public static function key_belongs_to_submission( $object_key, $submission_uuid ) {
+        $submission_uuid = (string) $submission_uuid;
+        if ( ! preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $submission_uuid ) ) {
+            return false;
+        }
+        return strpos( $object_key, $submission_uuid . '/' ) !== false;
     }
 }
