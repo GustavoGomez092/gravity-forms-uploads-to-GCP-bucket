@@ -80,7 +80,12 @@ class GFGCS_Ajax {
             wp_send_json_error( array( 'code' => 'bad_request' ), 400 );
         }
         if ( $size > $effective['max_size_bytes'] ) {
-            wp_send_json_error( array( 'code' => 'size_exceeded', 'max' => $effective['max_size_bytes'] ), 422 );
+            $max_mb = (int) round( $effective['max_size_bytes'] / ( 1024 * 1024 ) );
+            wp_send_json_error( array(
+                'code'    => 'size_exceeded',
+                'max'     => $effective['max_size_bytes'],
+                'message' => sprintf( 'File exceeds the maximum upload size (%d MB).', $max_mb ),
+            ), 422 );
         }
         if ( self::ext_disallowed( $filename ) ) {
             wp_send_json_error( array( 'code' => 'extension_not_allowed', 'message' => 'This type of file is not allowed.' ), 422 );
@@ -89,7 +94,11 @@ class GFGCS_Ajax {
             wp_send_json_error( array( 'code' => 'extension_not_allowed', 'message' => 'This type of file is not allowed.' ), 422 );
         }
         if ( ! self::mime_allowed( $mime, $effective['allowed_mimes'] ) ) {
-            wp_send_json_error( array( 'code' => 'mime_not_allowed', 'allowed' => $effective['allowed_mimes'] ), 422 );
+            wp_send_json_error( array(
+                'code'    => 'mime_not_allowed',
+                'allowed' => $effective['allowed_mimes'],
+                'message' => 'This type of file is not allowed.',
+            ), 422 );
         }
 
         $submission_uuid = isset( $_POST['submission_uuid'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['submission_uuid'] ) ) : '';
@@ -245,7 +254,8 @@ class GFGCS_Ajax {
     }
 
     public static function abort_upload() {
-        $form_id = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
+        $form_id  = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
+        $field_id = isset( $_POST['field_id'] ) ? absint( $_POST['field_id'] ) : 0;
         if ( ! $form_id || ! check_ajax_referer( 'gfgcs_init_' . $form_id, 'nonce', false ) ) {
             wp_send_json_error( array( 'code' => 'bad_nonce' ), 403 );
         }
@@ -258,9 +268,17 @@ class GFGCS_Ajax {
         if ( ! is_array( $cfg['sa'] ) || ! $cfg['default_bucket'] ) {
             wp_send_json_error( array( 'code' => 'not_configured' ), 503 );
         }
+        $form = class_exists( 'GFAPI' ) ? GFAPI::get_form( $form_id ) : null;
+        if ( ! $form ) {
+            wp_send_json_error( array( 'code' => 'unknown_form' ), 404 );
+        }
+        $effective = self::effective_field_settings( $form, $field_id, $cfg );
+        if ( ! $effective ) {
+            wp_send_json_error( array( 'code' => 'unknown_field' ), 404 );
+        }
         try {
             $client = new GFGCS_GCS_Client( new GFGCS_OAuth( $cfg['sa'] ) );
-            $deleted = $client->delete_object( $cfg['default_bucket'], $object_key );
+            $deleted = $client->delete_object( $effective['bucket'], $object_key );
         } catch ( \Throwable $e ) {
             wp_send_json_error( array( 'code' => 'delete_failed', 'message' => $e->getMessage() ), 502 );
         }

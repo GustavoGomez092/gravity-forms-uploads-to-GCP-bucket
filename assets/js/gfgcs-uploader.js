@@ -304,6 +304,7 @@
         var body = new URLSearchParams();
         body.set('action', 'gfgcs_abort');
         body.set('form_id', state.cfg.formId);
+        body.set('field_id', state.cfg.fieldId);
         body.set('nonce', state.cfg.nonce);
         body.set('submission_uuid', state.submissionUuid);
         body.set('object_key', entry.objectKey);

@@ -71,7 +71,7 @@ class MigrationTest extends TestCase {
 
         $f = $migrated[0]['fields'][0];
         $this->assertSame( 'jpg,jpeg,pdf', $f->allowedExtensions );
-        $this->assertObjectNotHasAttribute( 'allowedMimes', $f );
+        $this->assertFalse( property_exists( $f, 'allowedMimes' ) );
         $this->assertSame( array(), $warnings );
     }
 
@@ -105,7 +105,7 @@ class MigrationTest extends TestCase {
         );
 
         list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
-        $this->assertObjectHasAttribute( 'allowedMimes', $migrated[0]['fields'][0] );
+        $this->assertTrue( property_exists( $migrated[0]['fields'][0], 'allowedMimes' ) );
         $this->assertSame( array(), $warnings );
     }
 

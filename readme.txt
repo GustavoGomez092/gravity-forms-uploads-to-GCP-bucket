@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,12 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.1 =
+* Fix: `gfgcs_abort` endpoint now uses the per-form effective bucket override (was always targeting the default bucket).
+* Fix: form editor — toggling "Enable Multi-File Upload" on a GCS Upload field no longer corrupts its inputType to `fileupload`. Suppresses GF core's `ToggleMultiFile()` call for our field type.
+* Fix: `size_exceeded` and `mime_not_allowed` AJAX responses now include a human-readable `message` field.
+* Tests: replaced PHPUnit-9.6-deprecated `assertObjectHasAttribute`/`assertObjectNotHasAttribute` with `property_exists()` assertions.
 
 = 0.2.0 =
 * Feature: GCS Upload field now matches native Gravity Forms File Upload UI — settings live in the General section (Allowed file extensions, Enable Multi-File Upload, Maximum Number of Files, Maximum File Size), and the frontend renders the same dashed-box dropzone with cloud icon, "Select files" button, and per-file progress rows.
