@@ -22,8 +22,14 @@ class GFGCS_Migration {
     );
 
     /**
-     * Apply MIME→extension translation to every gcs_upload field in the supplied forms.
+     * Apply per-version transformations to every gcs_upload field in the supplied forms.
      * Pure function — no DB writes. Caller is responsible for persisting + clearing warnings.
+     *
+     * Transformations:
+     *  - 0.2.0: translate `allowedMimes` to `allowedExtensions` (unmappable MIMEs surfaced as warnings).
+     *  - 0.2.4: strip `inputType=fileupload` from `gcs_upload` fields. The old editor JS
+     *           corrupted this property when "Enable Multi-File Upload" was toggled, causing
+     *           GF_Fields::create() to instantiate GF_Field_FileUpload instead of our class.
      *
      * @param array $forms List of form arrays as returned by GFAPI::get_forms().
      * @return array{0:array,1:array} [migrated_forms, warnings]
@@ -35,6 +41,9 @@ class GFGCS_Migration {
             if ( empty( $form['fields'] ) ) { continue; }
             foreach ( $form['fields'] as $field ) {
                 if ( ! is_object( $field ) || ( $field->type ?? '' ) !== 'gcs_upload' ) { continue; }
+                if ( isset( $field->inputType ) && $field->inputType === 'fileupload' ) {
+                    unset( $field->inputType );
+                }
                 if ( ! isset( $field->allowedMimes ) ) { continue; }
                 $mimes_value = (string) $field->allowedMimes;
                 list( $exts, $unmapped ) = self::map_mimes_to_exts( $mimes_value );

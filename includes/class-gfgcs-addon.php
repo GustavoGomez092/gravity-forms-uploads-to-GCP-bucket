@@ -41,6 +41,34 @@ class GFGCS_Addon extends GFAddOn {
         GFGCS_Merge_Tags::register();
         GFGCS_Cleanup::register();
         add_filter( 'gform_validation', array( $this, 'validate_submission' ) );
+        add_filter( 'gform_form_post_get_meta', array( $this, 'repair_corrupt_inputtypes' ) );
+    }
+
+    /**
+     * Defend against `inputType=fileupload` corruption on `gcs_upload` fields.
+     *
+     * Old editor JS (pre-0.2.1) wired our "Enable Multi-File Upload" checkbox to GF's
+     * `ToggleMultiFile()`, which wrote `inputType: "fileupload"` onto the field meta.
+     * `GF_Fields::create()` reads `inputType` first and falls back to `type`, so a
+     * corrupted field gets instantiated as `GF_Field_FileUpload` — our class never runs,
+     * our markup never renders, and GF's native plupload hijacks the dropzone.
+     *
+     * This filter strips the bad `inputType` and re-instantiates the field via
+     * `GF_Fields::create()` so the type=`gcs_upload` lookup wins. Migration also cleans
+     * the DB on activation; this filter is the runtime safety net.
+     */
+    public function repair_corrupt_inputtypes( $form ) {
+        if ( ! is_array( $form ) || empty( $form['fields'] ) ) { return $form; }
+        if ( ! class_exists( 'GF_Fields' ) ) { return $form; }
+        foreach ( $form['fields'] as $i => $field ) {
+            if ( ! is_object( $field ) ) { continue; }
+            if ( ( $field->type ?? '' ) !== 'gcs_upload' ) { continue; }
+            if ( ( $field->inputType ?? '' ) !== 'fileupload' ) { continue; }
+            $props = get_object_vars( $field );
+            unset( $props['inputType'] );
+            $form['fields'][ $i ] = \GF_Fields::create( $props );
+        }
+        return $form;
     }
 
     public function plugin_settings_fields() {

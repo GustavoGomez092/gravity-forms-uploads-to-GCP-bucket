@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.2.3
+Stable tag: 0.2.4
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,9 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.4 =
+* Fix: `gcs_upload` fields with persisted `inputType=fileupload` corruption (from the pre-0.2.1 editor bug) now render correctly. `GF_Fields::create()` reads `inputType` first and falls back to `type`, so the corrupted property caused GF to instantiate `GF_Field_FileUpload` instead of our class — our markup never rendered and GF's native plupload hijacked the dropzone, uploading to `?gf_page=…` instead of GCS. Submission then failed with "This field is required." because no descriptor reached our hidden input. Two-layer fix: (a) one-time migration on activation strips the bad `inputType` from every affected field in every form; (b) runtime `gform_form_post_get_meta` filter re-instantiates any field that still has the corruption.
 
 = 0.2.3 =
 * Fix: entry-detail screen rendered an empty cell for `gcs_upload` fields. Our `gform_entry_field_value` filter was trying to `json_decode()` the already-formatted output from `get_value_entry_detail()`, getting `null`, and returning an empty string. The filter now reads the raw descriptor JSON straight from `$entry[ $field->id ]`. Entry-detail now shows a list of HMAC-signed proxy links (one per uploaded file, opening in a new tab via 302 to a short-lived signed GCS URL).

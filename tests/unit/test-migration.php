@@ -109,6 +109,33 @@ class MigrationTest extends TestCase {
         $this->assertSame( array(), $warnings );
     }
 
+    public function test_migrate_forms_strips_corrupt_inputtype_on_gcs_upload_field() {
+        $field            = new \stdClass();
+        $field->id        = 9;
+        $field->type      = 'gcs_upload';
+        $field->inputType = 'fileupload';
+        $field->multipleFiles = true;
+
+        $forms = array( array( 'id' => 1, 'title' => 'T', 'fields' => array( $field ) ) );
+
+        list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
+        $this->assertFalse( property_exists( $migrated[0]['fields'][0], 'inputType' ) );
+        $this->assertTrue( $migrated[0]['fields'][0]->multipleFiles );
+        $this->assertSame( array(), $warnings );
+    }
+
+    public function test_migrate_forms_leaves_inputtype_alone_on_non_gcs_field() {
+        $field            = new \stdClass();
+        $field->id        = 9;
+        $field->type      = 'fileupload';
+        $field->inputType = 'fileupload';
+
+        $forms = array( array( 'id' => 1, 'title' => 'T', 'fields' => array( $field ) ) );
+
+        list( $migrated, $warnings ) = \GFGCS_Migration::migrate_forms( $forms );
+        $this->assertSame( 'fileupload', $migrated[0]['fields'][0]->inputType );
+    }
+
     public function test_migrate_forms_is_idempotent_when_no_allowed_mimes() {
         $field       = new \stdClass();
         $field->id   = 5;
