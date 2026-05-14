@@ -91,7 +91,29 @@ class GF_Field_GCSUpload extends GF_Field {
     }
 
     private function render_multifile_markup( $name, $value_str, $config_attr, $caption ) {
-        return ''; // placeholder; implemented in Task 10
+        return sprintf(
+            '<div class="ginput_container ginput_container_fileupload ginput_container_fileupload_gcs" data-gfgcs-config="%1$s">'
+            . '<div class="gform_fileupload_multifile">'
+            . '<div class="gform_drop_area">'
+            . '<span class="gform_drop_instructions">%2$s</span>'
+            . '<button type="button" class="button gform_button_select_files">%3$s</button>'
+            . '</div>'
+            . '<input type="file" multiple class="gfgcs-file-input" hidden />'
+            . '<span class="gfield_description gform_fileupload_rules">%4$s</span>'
+            . '<div class="validation_message gfgcs-validation" aria-live="polite"></div>'
+            . '<ul class="ginput_preview_list" aria-live="polite"></ul>'
+            . '</div>'
+            . '<input type="hidden" name="%5$s" class="gfgcs-hidden" value="%6$s" />'
+            . '<noscript><p>%7$s</p></noscript>'
+            . '</div>',
+            $config_attr,
+            esc_html__( 'Drop files here or', 'gf-gcs-uploads' ),
+            esc_html__( 'Select files', 'gf-gcs-uploads' ),
+            $caption,
+            esc_attr( $name ),
+            esc_attr( $value_str ),
+            esc_html__( 'JavaScript is required to upload files securely.', 'gf-gcs-uploads' )
+        );
     }
 
     public function get_value_entry_detail( $value, $currency = '', $use_text = false, $format = 'html', $media = 'screen' ) {

@@ -106,5 +106,23 @@ namespace GFGCS\Tests\Unit {
             $this->assertStringContainsString( 'name="input_53"', $html );
             $this->assertStringNotContainsString( 'gform_drop_area', $html );
         }
+
+        public function test_get_field_input_multi_file_uses_native_dropzone_markup() {
+            $f = new \GF_Field_GCSUpload();
+            $f->id = 53;
+            $f->multipleFiles = true;
+            $f->maxFileSize = 2;
+            $f->maxFiles = 5;
+
+            $html = $f->get_field_input( array( 'id' => 8 ), '', null );
+
+            $this->assertStringContainsString( 'gform_fileupload_multifile', $html );
+            $this->assertStringContainsString( 'gform_drop_area', $html );
+            $this->assertStringContainsString( 'gform_drop_instructions', $html );
+            $this->assertStringContainsString( 'gform_button_select_files', $html );
+            $this->assertStringContainsString( 'ginput_preview_list', $html );
+            $this->assertStringContainsString( 'Max. file size: 2 MB. Maximum number of files: 5.', $html );
+            $this->assertStringContainsString( 'name="input_53"', $html );
+        }
     }
 }
