@@ -183,31 +183,60 @@
             });
     }
 
-    function putToGcs(state, entry, signedUrl) {
+    function startResumableSession(entry, signedInitUrl) {
+        // GCS resumable upload handshake: POST to the signed init URL with
+        // x-goog-resumable: start. GCS responds 201 with a Location header
+        // containing the upload session URL where bytes are PUT.
         return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest();
-            entry.xhr = xhr;
-            xhr.open('PUT', signedUrl, true);
-            xhr.setRequestHeader('Content-Type', entry.file.type || 'application/octet-stream');
-            xhr.upload.addEventListener('progress', function (e) {
-                if (e.lengthComputable) {
-                    entry.progress = Math.round((e.loaded / e.total) * 100);
-                    render(state);
-                }
-            });
+            xhr.open('POST', signedInitUrl, true);
+            xhr.setRequestHeader('x-goog-resumable', 'start');
             xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    entry.xhr = null;
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                    } else if (xhr.status === 0) {
-                        reject({ aborted: true });
-                    } else {
-                        reject(new Error('Upload failed (HTTP ' + xhr.status + ')'));
+                if (xhr.readyState !== 4) return;
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    var location = xhr.getResponseHeader('Location');
+                    if (!location) {
+                        reject(new Error('Resumable session: missing Location header'));
+                        return;
                     }
+                    resolve(location);
+                } else if (xhr.status === 0) {
+                    reject({ aborted: true });
+                } else {
+                    reject(new Error('Resumable init failed (HTTP ' + xhr.status + ')'));
                 }
             };
-            xhr.send(entry.file);
+            xhr.send(null);
+        });
+    }
+
+    function putToGcs(state, entry, signedInitUrl) {
+        return startResumableSession(entry, signedInitUrl).then(function (uploadUrl) {
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                entry.xhr = xhr;
+                xhr.open('PUT', uploadUrl, true);
+                xhr.setRequestHeader('Content-Type', entry.file.type || 'application/octet-stream');
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (e.lengthComputable) {
+                        entry.progress = Math.round((e.loaded / e.total) * 100);
+                        render(state);
+                    }
+                });
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        entry.xhr = null;
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve();
+                        } else if (xhr.status === 0) {
+                            reject({ aborted: true });
+                        } else {
+                            reject(new Error('Upload failed (HTTP ' + xhr.status + ')'));
+                        }
+                    }
+                };
+                xhr.send(entry.file);
+            });
         });
     }
 
@@ -253,7 +282,9 @@
             del.type = 'button';
             del.className = 'gform_delete_file';
             del.setAttribute('aria-label', 'Delete this file');
-            del.innerHTML = '<span class="screen-reader-text">Delete</span>';
+            // Render the × glyph directly (more reliable than a CSS pseudo-element
+            // when themes have aggressive `button` overrides).
+            del.innerHTML = '<span aria-hidden="true" class="gfgcs-delete-glyph">×</span><span class="screen-reader-text">Delete</span>';
             del.addEventListener('click', function () { removeEntry(state, entry.id); });
             li.appendChild(del);
 
@@ -311,8 +342,19 @@
         fetch(state.cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body }).catch(function () {});
     }
 
+    function reenableSelectButtons() {
+        // GF's frontend JS disables `.gform_button_select_files` whenever plupload
+        // isn't loaded for the form. Re-enable our buttons after every render.
+        document.querySelectorAll('.ginput_container_fileupload_gcs .gform_button_select_files').forEach(function (btn) {
+            btn.disabled = false;
+        });
+    }
+
     function attachAll() {
         document.querySelectorAll('.ginput_container_fileupload_gcs[data-gfgcs-config]').forEach(init);
+        // Defer to next tick so this runs AFTER any other gform_post_render handlers
+        // that may try to disable our select button.
+        setTimeout(reenableSelectButtons, 0);
     }
 
     if (document.readyState === 'loading') {

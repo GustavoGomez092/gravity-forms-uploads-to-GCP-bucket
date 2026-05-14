@@ -18,7 +18,7 @@ class GFGCS_GCS_Client {
     public function object_metadata( $bucket, $object_path ) {
         $url = self::BASE . '/b/' . rawurlencode( $bucket ) . '/o/' . rawurlencode( $object_path );
         $res = wp_remote_get( $url, array(
-            'timeout' => 5,
+            'timeout' => 20,
             'headers' => array( 'Authorization' => 'Bearer ' . $this->oauth->get_access_token() ),
         ) );
         if ( is_wp_error( $res ) ) {

@@ -1,17 +1,107 @@
-.ginput_container_fileupload_gcs .gfgcs-progress {
-    width: 100%;
-    height: 6px;
-    margin-top: 4px;
+/* Preview list — native GF's `.gform_fileupload_multifile` styling no longer applies
+   because we renamed the wrapper class to `.gfgcs-multifile` (the native class
+   triggers GF's plupload-attach handler which crashes on our element). These rules
+   re-create the parts of the native preview-row look that we lost. */
+
+.ginput_container_fileupload_gcs .ginput_preview_list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
 }
+
+.ginput_container_fileupload_gcs .ginput_preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.ginput_container_fileupload_gcs .ginput_preview:last-child {
+    border-bottom: 0;
+}
+
+.ginput_container_fileupload_gcs .gform_fileupload_filename {
+    font-weight: 600;
+    flex: 0 0 auto;
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ginput_container_fileupload_gcs .gform_fileupload_filesize {
+    color: #666;
+    font-size: 0.875em;
+    flex: 0 0 auto;
+}
+
+.ginput_container_fileupload_gcs .gfgcs-progress {
+    flex: 1 1 auto;
+    height: 6px;
+    margin: 0;
+}
+
+.ginput_container_fileupload_gcs .gfgcs-row-error {
+    color: #d63638;
+    font-size: 0.875em;
+    flex: 1 1 auto;
+}
+
+.ginput_container_fileupload_gcs .ginput_preview.is-error {
+    background: #fcf0f1;
+}
+
+/* Delete button — render as a small "×" glyph. !important is used to override
+   any theme `button` rule (commonly blue/solid) that has higher specificity
+   than our nested selector. */
+.ginput_container_fileupload_gcs .gform_delete_file,
+.ginput_container_fileupload_gcs button.gform_delete_file {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer;
+    color: #d63638 !important;
+    line-height: 1 !important;
+    flex: 0 0 auto;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 0 !important;
+    border-radius: 3px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.ginput_container_fileupload_gcs .gform_delete_file:hover,
+.ginput_container_fileupload_gcs .gform_delete_file:focus {
+    background: #fcf0f1 !important;
+    outline: 0 !important;
+}
+
+.ginput_container_fileupload_gcs .gfgcs-delete-glyph {
+    color: #d63638 !important;
+    font-size: 22px !important;
+    line-height: 1 !important;
+    font-weight: 700 !important;
+}
+
+.ginput_container_fileupload_gcs .gform_delete_file .screen-reader-text {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
+
 .ginput_container_fileupload_gcs .gfgcs-validation:empty {
     display: none;
 }
-.ginput_container_fileupload_gcs .gfgcs-row-error {
+
+.ginput_container_fileupload_gcs .gfgcs-validation {
     color: #d63638;
-    margin-left: 8px;
     font-size: 0.875em;
-}
-.ginput_container_fileupload_gcs .ginput_preview.is-error {
-    border-color: #d63638;
-    background: #fcf0f1;
+    margin-top: 6px;
 }

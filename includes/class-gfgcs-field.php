@@ -8,6 +8,18 @@ if ( ! class_exists( 'GF_Field' ) ) {
 class GF_Field_GCSUpload extends GF_Field {
     public $type = 'gcs_upload';
 
+    /**
+     * Always report our own type. GF's editor wires the "Enable Multi-File Upload"
+     * checkbox to ToggleMultiFile()->StartChangeInputType("fileupload"), which
+     * writes inputType="fileupload" onto our field. The default get_input_type()
+     * prefers inputType over type, which makes GF treat us as a native fileupload
+     * field on submit ($_POST['input_N'] gets dropped in favor of $_FILES).
+     * Hard-pin the return so the corruption can't take effect.
+     */
+    public function get_input_type() {
+        return $this->type;
+    }
+
     public function get_form_editor_field_title() {
         return esc_attr__( 'GCS Upload', 'gf-gcs-uploads' );
     }
@@ -91,14 +103,20 @@ class GF_Field_GCSUpload extends GF_Field {
     }
 
     private function render_multifile_markup( $name, $value_str, $config_attr, $caption ) {
+        // NOTE: native GF uses `gform_fileupload_multifile` here, but GF's frontend JS
+        // scans `.gform_fileupload_multifile` and attempts to attach plupload to each
+        // match — which crashes on our element because we don't populate plupload's
+        // settings object. Use a sibling class instead. The inner native classes
+        // (.gform_drop_area, .gform_button_select_files, .ginput_preview_list) still
+        // give us theme styling on the dropzone itself.
         return sprintf(
             '<div class="ginput_container ginput_container_fileupload ginput_container_fileupload_gcs" data-gfgcs-config="%1$s">'
-            . '<div class="gform_fileupload_multifile">'
+            . '<div class="gfgcs-multifile">'
             . '<div class="gform_drop_area">'
             . '<span class="gform_drop_instructions">%2$s</span>'
             . '<button type="button" class="button gform_button_select_files">%3$s</button>'
             . '</div>'
-            . '<input type="file" multiple class="gfgcs-file-input" hidden />'
+            . '<input type="file" multiple class="gfgcs-file-input" style="display:none" />'
             . '<span class="gfield_description gform_fileupload_rules">%4$s</span>'
             . '<div class="validation_message gfgcs-validation" aria-live="polite"></div>'
             . '<ul class="ginput_preview_list" aria-live="polite"></ul>'

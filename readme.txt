@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,15 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.2 =
+* Fix: corrupted `inputType=fileupload` on a `gcs_upload` field no longer breaks submission. `GF_Field_GCSUpload::get_input_type()` now hard-pins to `gcs_upload`, so submission preprocessing routes the field value through `$_POST` instead of `$_FILES`.
+* Fix: renamed the outer wrapper class from `gform_fileupload_multifile` to `gfgcs-multifile`. GF's frontend JS scans the native class and attempts to attach plupload to it, which crashed on our element (`Cannot read properties of undefined (reading 'form_id')`).
+* Fix: JS uploader now does the real GCS resumable two-step handshake — POST to the signed init URL with `x-goog-resumable: start` to obtain the upload session URL, then PUT bytes to that session URL. Previous code PUT directly to the init URL, which is a protocol mismatch (HTTP 400).
+* Fix: `object_metadata` HTTP timeout bumped from 5s to 20s. GCS metadata HEAD occasionally exceeded 5s and the submission would fail with "File verification temporarily unavailable" when only one file out of many timed out.
+* Fix: frontend preview rows and delete button restyled because the wrapper-class rename broke the native styling chain. Inline `×` glyph is now rendered as a real child of the delete button instead of via `::before` so themes with aggressive `button` overrides can't hide it.
+* Fix: re-enable `.gform_button_select_files` on every `gform_post_render`. GF disables that button whenever plupload isn't loaded for the form, which leaves our select-files button greyed out.
+* Fix: hidden `<input type="file">` uses inline `style="display:none"` instead of the `hidden` HTML attribute — some theme rules forced `display: block` and the input was bleeding through onto the page.
 
 = 0.2.1 =
 * Fix: `gfgcs_abort` endpoint now uses the per-form effective bucket override (was always targeting the default bucket).

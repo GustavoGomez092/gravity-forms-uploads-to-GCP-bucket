@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Gravity Forms GCS Uploads
  * Description: Offloads Gravity Forms file uploads to Google Cloud Storage via signed-URL resumable uploads. Files bypass the web server entirely.
- * Version: 0.2.1
+ * Version: 0.2.2
  * Requires PHP: 7.4
  * Requires at least: 6.0
  * Author: SSCW
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'GFGCS_VERSION', '0.2.1' );
+define( 'GFGCS_VERSION', '0.2.2' );
 define( 'GFGCS_PLUGIN_FILE', __FILE__ );
 define( 'GFGCS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'GFGCS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

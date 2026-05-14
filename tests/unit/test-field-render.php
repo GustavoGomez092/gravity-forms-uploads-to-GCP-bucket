@@ -116,7 +116,10 @@ namespace GFGCS\Tests\Unit {
 
             $html = $f->get_field_input( array( 'id' => 8 ), '', null );
 
-            $this->assertStringContainsString( 'gform_fileupload_multifile', $html );
+            // Renamed from native `gform_fileupload_multifile` to avoid GF's
+            // frontend plupload-init from crashing on our element.
+            $this->assertStringContainsString( 'gfgcs-multifile', $html );
+            $this->assertStringNotContainsString( 'gform_fileupload_multifile', $html );
             $this->assertStringContainsString( 'gform_drop_area', $html );
             $this->assertStringContainsString( 'gform_drop_instructions', $html );
             $this->assertStringContainsString( 'gform_button_select_files', $html );
