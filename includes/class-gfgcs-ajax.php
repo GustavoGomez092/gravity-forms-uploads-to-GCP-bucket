@@ -260,9 +260,13 @@ class GFGCS_Ajax {
         }
         try {
             $client = new GFGCS_GCS_Client( new GFGCS_OAuth( $cfg['sa'] ) );
-            $client->delete_object( $cfg['default_bucket'], $object_key );
+            $deleted = $client->delete_object( $cfg['default_bucket'], $object_key );
         } catch ( \Throwable $e ) {
             wp_send_json_error( array( 'code' => 'delete_failed', 'message' => $e->getMessage() ), 502 );
+        }
+        if ( $deleted === false ) {
+            // delete_object returns false on transport errors instead of throwing — surface as 502.
+            wp_send_json_error( array( 'code' => 'delete_failed', 'message' => 'GCS delete failed.' ), 502 );
         }
         wp_send_json_success( array( 'deleted' => true ) );
     }
