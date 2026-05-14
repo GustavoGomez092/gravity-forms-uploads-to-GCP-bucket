@@ -7,16 +7,21 @@ class GFGCS_Validator {
      * Verify all files claimed by a gcs_upload field actually exist in GCS
      * with matching sizes.
      *
-     * @param array  $files    Decoded file descriptor array from the hidden input.
-     * @param string $bucket   GCS bucket name.
-     * @param string $prefix   Expected object-path prefix (may contain tokens).
-     * @param object $client   GCS client with object_metadata( $bucket, $path ).
-     * @param bool   $required Whether the field is required.
-     * @param int    $field_id The numeric ID of the field being validated.
+     * @param array  $files                Decoded file descriptor array from the hidden input.
+     * @param string $bucket               GCS bucket name.
+     * @param string $prefix               Expected object-path prefix (may contain tokens).
+     * @param object $client               GCS client with object_metadata( $bucket, $path ).
+     * @param bool   $required             Whether the field is required.
+     * @param int    $field_id             The numeric ID of the field being validated.
+     * @param array  $allowed_extensions   Whitelist of extensions (empty = no filter).
+     * @param array  $disallowed_extensions Blacklist of extensions (empty = no deny check).
      *
      * @return array{code:string,message:string}|null  null = pass.
      */
-    public static function verify_field( $files, $bucket, $prefix, $client, $required = false, $field_id = 0 ) {
+    public static function verify_field(
+        $files, $bucket, $prefix, $client, $required = false, $field_id = 0,
+        array $allowed_extensions = array(), array $disallowed_extensions = array()
+    ) {
         if ( ! is_array( $files ) ) {
             $files = array();
         }
@@ -59,6 +64,22 @@ class GFGCS_Validator {
             $expected_tail = (int) $field_id . '/' . ( $f['file_uuid'] ?? '' ) . '/';
             if ( $field_id <= 0 || empty( $f['file_uuid'] ) || strpos( $tail, $expected_tail ) !== 0 ) {
                 return array( 'code' => 'tampered_path', 'message' => 'Submission integrity check failed.' );
+            }
+
+            // Extension check (defense-in-depth): re-validate against stored original_name.
+            $original = (string) ( $f['original_name'] ?? '' );
+            if ( $original !== '' ) {
+                $dot = strrpos( $original, '.' );
+                $ext = $dot === false ? '' : strtolower( substr( $original, $dot + 1 ) );
+                if ( $ext === '' || in_array( $ext, array_map( 'strtolower', $disallowed_extensions ), true ) ) {
+                    return array( 'code' => 'extension_not_allowed', 'message' => 'This type of file is not allowed.' );
+                }
+                if ( ! empty( $allowed_extensions ) ) {
+                    $normalized = array_map( function ( $e ) { return strtolower( ltrim( trim( $e ), '.' ) ); }, $allowed_extensions );
+                    if ( ! in_array( $ext, $normalized, true ) ) {
+                        return array( 'code' => 'extension_not_allowed', 'message' => 'This type of file is not allowed.' );
+                    }
+                }
             }
 
             // HEAD the object in GCS.

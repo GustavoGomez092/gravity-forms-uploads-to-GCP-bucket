@@ -293,7 +293,14 @@ class GFGCS_Addon extends GFAddOn {
             if ( ! $client ) {
                 $client = new GFGCS_GCS_Client( new GFGCS_OAuth( $cfg['sa'] ) );
             }
-            $err = GFGCS_Validator::verify_field( $files, $effective['bucket'], $effective['prefix'], $client, ! empty( $field->isRequired ), (int) $field->id );
+            $allowed_exts    = $effective['allowed_extensions'] ?? array();
+            $disallowed_exts = GFGCS_Ajax::get_disallowed_extensions();
+
+            $err = GFGCS_Validator::verify_field(
+                $files, $effective['bucket'], $effective['prefix'], $client,
+                ! empty( $field->isRequired ), (int) $field->id,
+                $allowed_exts, $disallowed_exts
+            );
             if ( $err ) {
                 $field->failed_validation  = true;
                 $field->validation_message = $err['message'];

@@ -218,13 +218,17 @@ class GFGCS_Ajax {
     }
 
     public static function ext_disallowed( $filename ) {
-        $denied = class_exists( 'GFCommon' ) && method_exists( 'GFCommon', 'get_disallowed_file_extensions' )
-            ? (array) \GFCommon::get_disallowed_file_extensions()
-            : array( 'php', 'php3', 'php4', 'php5', 'php7', 'phtml', 'phar', 'js', 'pl', 'py', 'cgi', 'asp', 'aspx', 'sh', 'htaccess' );
+        $denied = self::get_disallowed_extensions();
         $dot = strrpos( $filename, '.' );
         if ( $dot === false || $dot === strlen( $filename ) - 1 ) { return false; }
         $ext = strtolower( substr( $filename, $dot + 1 ) );
         return in_array( $ext, array_map( 'strtolower', $denied ), true );
+    }
+
+    public static function get_disallowed_extensions() {
+        return class_exists( 'GFCommon' ) && method_exists( 'GFCommon', 'get_disallowed_file_extensions' )
+            ? (array) \GFCommon::get_disallowed_file_extensions()
+            : array( 'php', 'php3', 'php4', 'php5', 'php7', 'phtml', 'phar', 'js', 'pl', 'py', 'cgi', 'asp', 'aspx', 'sh', 'htaccess' );
     }
 
     private static function uuidv4() {
