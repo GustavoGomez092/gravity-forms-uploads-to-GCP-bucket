@@ -73,4 +73,49 @@ class GFGCS_Migration {
         }
         return array( implode( ',', $exts ), $unmapped );
     }
+
+    public static function maybe_run() {
+        if ( get_option( 'gfgcs_version' ) === GFGCS_VERSION ) { return; }
+        if ( ! class_exists( 'GFAPI' ) ) { return; }
+
+        $forms = \GFAPI::get_forms( true, true );
+        list( $migrated, $warnings ) = self::migrate_forms( $forms );
+
+        foreach ( $migrated as $form ) {
+            \GFAPI::update_form( $form );
+        }
+
+        if ( ! empty( $warnings ) ) {
+            update_option( 'gfgcs_migration_warnings', $warnings, false );
+        }
+        update_option( 'gfgcs_version', GFGCS_VERSION, false );
+    }
+
+    public static function render_notice() {
+        $warnings = get_option( 'gfgcs_migration_warnings', array() );
+        if ( empty( $warnings ) ) { return; }
+        $items = array();
+        foreach ( $warnings as $w ) {
+            $items[] = sprintf(
+                esc_html__( 'Form %1$d, field %2$d: %3$s', 'gf-gcs-uploads' ),
+                (int) $w['form_id'], (int) $w['field_id'], esc_html( $w['mimes_value'] )
+            );
+        }
+        $dismiss_url = wp_nonce_url( admin_url( 'admin-post.php?action=gfgcs_dismiss_migration_warnings' ), 'gfgcs_dismiss_warnings' );
+        printf(
+            '<div class="notice notice-warning is-dismissible"><p><strong>%s</strong></p><ul style="margin-left:24px;list-style:disc"><li>%s</li></ul><p><a class="button" href="%s">%s</a></p></div>',
+            esc_html__( 'GCS Uploads: the following MIME types could not be translated to file extensions during the 0.2.0 upgrade. Please reconfigure these fields.', 'gf-gcs-uploads' ),
+            implode( '</li><li>', $items ),
+            esc_url( $dismiss_url ),
+            esc_html__( 'Dismiss', 'gf-gcs-uploads' )
+        );
+    }
+
+    public static function dismiss_notice() {
+        if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Forbidden', 403 ); }
+        check_admin_referer( 'gfgcs_dismiss_warnings' );
+        delete_option( 'gfgcs_migration_warnings' );
+        wp_safe_redirect( wp_get_referer() ?: admin_url() );
+        exit;
+    }
 }

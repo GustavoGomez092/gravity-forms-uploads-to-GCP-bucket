@@ -26,6 +26,22 @@ add_action( 'gform_loaded', function () {
     GFAddOn::register( 'GFGCS_Addon' );
 }, 5 );
 
+add_action( 'admin_init', function () {
+    require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-migration.php';
+    GFGCS_Migration::maybe_run();
+} );
+
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'manage_options' ) ) { return; }
+    require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-migration.php';
+    GFGCS_Migration::render_notice();
+} );
+
+add_action( 'admin_post_gfgcs_dismiss_migration_warnings', function () {
+    require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-migration.php';
+    GFGCS_Migration::dismiss_notice();
+} );
+
 register_activation_hook( __FILE__, function () {
     if ( ! class_exists( 'GFForms' ) ) {
         deactivate_plugins( plugin_basename( __FILE__ ) );
