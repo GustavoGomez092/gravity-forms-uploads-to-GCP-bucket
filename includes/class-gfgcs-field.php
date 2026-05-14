@@ -20,11 +20,11 @@ class GF_Field_GCSUpload extends GF_Field {
         return array(
             'label_setting',
             'description_setting',
+            'file_extensions_setting',
+            'multiple_files_setting',
+            'file_size_setting',
             'rules_setting',
-            'gcs_multiple_files_setting',
-            'gcs_max_files_setting',
-            'gcs_max_size_setting',
-            'gcs_mime_setting',
+            'default_value_setting',
             'css_class_setting',
             'visibility_setting',
             'admin_label_setting',
@@ -82,34 +82,6 @@ class GF_Field_GCSUpload extends GF_Field {
 }
 
 GF_Fields::register( new GF_Field_GCSUpload() );
-
-add_action( 'gform_field_advanced_settings', function ( $position ) {
-    if ( $position === 50 ) {
-        ?>
-        <li class="gcs_multiple_files_setting field_setting">
-            <label><input type="checkbox" id="field_gcs_multiple" onclick="SetFieldProperty('multipleFiles', this.checked);" />
-                <?php esc_html_e( 'Allow multiple files', 'gf-gcs-uploads' ); ?></label>
-        </li>
-        <li class="gcs_max_files_setting field_setting">
-            <label><?php esc_html_e( 'Max files', 'gf-gcs-uploads' ); ?>
-                <input type="number" min="1" max="50" id="field_gcs_max_files" onchange="SetFieldProperty('maxFiles', parseInt(this.value,10) || 1);" /></label>
-        </li>
-        <li class="gcs_max_size_setting field_setting">
-            <label><?php esc_html_e( 'Max file size (MB)', 'gf-gcs-uploads' ); ?>
-                <input type="number" min="1" id="field_gcs_max_size" onchange="SetFieldProperty('maxFileSize', parseInt(this.value,10) || 1);" /></label>
-        </li>
-        <li class="gcs_mime_setting field_setting">
-            <label><?php esc_html_e( 'Allowed MIME types (comma separated, glob style)', 'gf-gcs-uploads' ); ?>
-                <input type="text" id="field_gcs_mimes" onchange="SetFieldProperty('allowedMimes', this.value);" /></label>
-        </li>
-        <?php
-    }
-}, 10, 1 );
-
-add_filter( 'gform_tooltips', function ( $tt ) {
-    $tt['form_field_gcs_max_size'] = esc_html__( 'Per-file maximum, in MB. Leave blank to use form/global default.', 'gf-gcs-uploads' );
-    return $tt;
-} );
 
 add_action( 'gform_enqueue_scripts', function ( $form ) {
     $has = false;
