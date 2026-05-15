@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.2.5
+Stable tag: 0.2.6
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,9 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.6 =
+* Fix: enhance GCS merge tags functionality with new value merge tag and improved file decoding. This fixes the issue for emails with invalid file link format.
 
 = 0.2.5 =
 * Fix: validator now recognizes uppercase `{Y}` (year) in object-path prefix templates. The regex builder in `GFGCS_Validator::verify_field()` used `[a-z_]+` to detect template tokens, which silently treated `{Y}` as a literal `\{Y\}` in the compiled regex. Templates like `gravityforms/{Y}/{m}/{submission_uuid}/` matched in the init endpoint (`GFGCS_Settings::expand_prefix()` recognizes `Y`/`m`/`d`) but every legitimate upload was then rejected as `tampered_path` ("Submission integrity check failed."). Character class is now `[A-Za-z_]+` to cover all `PREFIX_TOKENS`.

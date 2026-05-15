@@ -5,6 +5,8 @@ if ( ! class_exists( 'GF_Field' ) ) {
     return;
 }
 
+require_once GFGCS_PLUGIN_DIR . 'includes/class-gfgcs-merge-tags.php';
+
 class GF_Field_GCSUpload extends GF_Field {
     public $type = 'gcs_upload';
 
@@ -144,6 +146,21 @@ class GF_Field_GCSUpload extends GF_Field {
             $out[] = esc_html( $f['original_name'] ?? $f['object_path'] ?? '' );
         }
         return $format === 'html' ? '<ul><li>' . implode( '</li><li>', $out ) . '</li></ul>' : implode( "\n", $out );
+    }
+
+    public function get_value_merge_tag( $value, $input_id, $entry, $form, $modifier, $raw_value, $url_encode, $esc_html, $format, $nl2br ) {
+        $files = GFGCS_Merge_Tags::decode_files( $raw_value );
+        if ( empty( $files ) ) {
+            $files = GFGCS_Merge_Tags::decode_files( $value );
+        }
+        if ( empty( $files ) ) {
+            return '';
+        }
+
+        $entry_id = is_array( $entry ) && isset( $entry['id'] ) ? $entry['id'] : 0;
+        $output   = GFGCS_Merge_Tags::render_for_format( $files, $entry_id, $this->id, $modifier, $format );
+
+        return $url_encode ? rawurlencode( $output ) : $output;
     }
 }
 
