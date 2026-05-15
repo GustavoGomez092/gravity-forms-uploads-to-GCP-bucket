@@ -11,7 +11,17 @@ class MergeTagsTest extends TestCase {
     protected function setUp(): void {
         parent::setUp();
         Monkey\setUp();
-        Functions\when( 'rest_url' )->returnArg();
+        if ( ! function_exists( 'rest_url' ) ) {
+            Functions\when( 'rest_url' )->returnArg();
+        }
+        if ( ! function_exists( 'esc_url' ) ) {
+            Functions\when( 'esc_url' )->returnArg();
+        }
+        if ( ! function_exists( 'esc_html' ) ) {
+            Functions\when( 'esc_html' )->alias( function ( $value ) {
+                return htmlspecialchars( $value );
+            } );
+        }
     }
     protected function tearDown(): void {
         Monkey\tearDown();
@@ -41,5 +51,33 @@ class MergeTagsTest extends TestCase {
     public function test_render_empty_field_returns_empty_string() {
         $this->assertSame( '', \GFGCS_Merge_Tags::render( array(), 42, 4, 'urls', 'sec' ) );
         $this->assertSame( '', \GFGCS_Merge_Tags::render( array(), 42, 4, 'json', 'sec' ) );
+    }
+
+    public function test_render_for_html_format_returns_links() {
+        $files = array( array(
+            'object_path'   => 'p/4/u/a.jpg',
+            'original_name' => 'a.jpg',
+        ) );
+
+        $out = \GFGCS_Merge_Tags::render_for_format( $files, 42, 4, '', 'html', 'sec' );
+
+        $this->assertStringContainsString( 'gfgcs/v1/f/42/4/0/', $out );
+        $this->assertStringContainsString( 'target="_blank"', $out );
+        $this->assertStringContainsString( 'rel="noopener"', $out );
+        $this->assertStringContainsString( '>a.jpg</a>', $out );
+    }
+
+    public function test_render_metadata_modifiers() {
+        $files = array( array(
+            'object_path'   => 'p/4/u/a.jpg',
+            'original_name' => 'a.jpg',
+            'size'          => 123,
+            'mime'          => 'image/jpeg',
+        ) );
+
+        $this->assertSame( 'a.jpg', \GFGCS_Merge_Tags::render( $files, 42, 4, 'filename', 'sec' ) );
+        $this->assertSame( '123', \GFGCS_Merge_Tags::render( $files, 42, 4, 'size', 'sec' ) );
+        $this->assertSame( 'image/jpeg', \GFGCS_Merge_Tags::render( $files, 42, 4, 'mime', 'sec' ) );
+        $this->assertSame( 'p/4/u/a.jpg', \GFGCS_Merge_Tags::render( $files, 42, 4, 'key', 'sec' ) );
     }
 }
