@@ -4,7 +4,7 @@ Tags: gravity forms, google cloud storage, gcs, file upload, signed url
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.2.6
+Stable tag: 0.2.7
 License: GPLv2 or later
 
 Offload Gravity Forms file uploads directly to Google Cloud Storage via signed-URL resumable uploads. Files bypass your web server entirely.
@@ -41,6 +41,9 @@ They all return 404. This is the kill switch — use it if a webhook recipient i
 GCS resumable upload sessions; the JS client resumes from the last acknowledged byte automatically.
 
 == Changelog ==
+
+= 0.2.7 =
+* Fix: webhook payloads now contain HMAC-signed proxy URLs for `gcs_upload` field values instead of the raw GCS descriptor. The GF Webhooks add-on builds its payload in `GFWebhooks::get_request_data()` outside any field-value transformation hook — in `all_fields` mode it ships `$entry` verbatim, and in `select_fields` mode it pulls each mapped value through `get_field_value()` which returns the raw descriptor string. Neither path runs through `gform_replace_merge_tags`, so our field's stored JSON (`{"object_path":"gravityforms/…","original_name":"…",…}`) was reaching the webhook recipient as a useless raw bucket key. A new `gform_webhooks_request_data` handler in `GFGCS_Merge_Tags` now walks the payload, finds entries that correspond to a `gcs_upload` field (mapping `select_fields` custom keys back to field IDs via `$feed['meta']['fieldValues']`), and rewrites each descriptor so `object_path` carries the proxy URL while `original_name`, `size`, `mime`, and `file_uuid` are preserved — same JSON-encoded string shape, no schema break for existing consumers.
 
 = 0.2.6 =
 * Fix: enhance GCS merge tags functionality with new value merge tag and improved file decoding. This fixes the issue for emails with invalid file link format.

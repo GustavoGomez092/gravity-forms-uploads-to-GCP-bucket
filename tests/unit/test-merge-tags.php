@@ -67,6 +67,103 @@ class MergeTagsTest extends TestCase {
         $this->assertStringContainsString( '>a.jpg</a>', $out );
     }
 
+    public function test_filter_webhook_request_data_rewrites_object_path_with_proxy_url_keeping_other_keys() {
+        if ( ! function_exists( 'wp_json_encode' ) ) {
+            Functions\when( 'wp_json_encode' )->alias( function ( $v ) { return json_encode( $v ); } );
+        }
+        Functions\expect( 'get_option' )->with( 'gfgcs_signing_secret', '' )->andReturn( 'sec' );
+
+        $field = (object) array( 'id' => 52, 'type' => 'gcs_upload' );
+        $form  = array( 'fields' => array( $field ) );
+        $entry = array(
+            'id' => 99,
+            '52' => json_encode( array(
+                array( 'object_path' => 'p/52/u/a.png', 'original_name' => 'a.png', 'size' => 1, 'mime' => 'image/png', 'file_uuid' => 'u-a' ),
+                array( 'object_path' => 'p/52/u/b.png', 'original_name' => 'b.png', 'size' => 2, 'mime' => 'image/png', 'file_uuid' => 'u-b' ),
+            ) ),
+        );
+
+        $out = \GFGCS_Merge_Tags::filter_webhook_request_data( $entry, array(), $entry, $form );
+
+        $this->assertArrayHasKey( '52', $out );
+        $decoded = json_decode( $out['52'], true );
+        $this->assertIsArray( $decoded );
+        $this->assertCount( 2, $decoded );
+
+        // object_path replaced with proxy URL.
+        $this->assertStringContainsString( 'gfgcs/v1/f/99/52/0/', $decoded[0]['object_path'] );
+        $this->assertStringContainsString( 'gfgcs/v1/f/99/52/1/', $decoded[1]['object_path'] );
+
+        // Other keys preserved.
+        $this->assertSame( 'a.png',      $decoded[0]['original_name'] );
+        $this->assertSame( 1,            $decoded[0]['size'] );
+        $this->assertSame( 'image/png',  $decoded[0]['mime'] );
+        $this->assertSame( 'u-a',        $decoded[0]['file_uuid'] );
+        $this->assertSame( 'b.png',      $decoded[1]['original_name'] );
+        $this->assertSame( 'u-b',        $decoded[1]['file_uuid'] );
+    }
+
+    public function test_filter_webhook_request_data_leaves_non_gcs_fields_alone() {
+        Functions\when( 'get_option' )->justReturn( 'sec' );
+
+        $field = (object) array( 'id' => 7, 'type' => 'text' );
+        $form  = array( 'fields' => array( $field ) );
+        $entry = array( 'id' => 99, '7' => 'hello' );
+
+        $out = \GFGCS_Merge_Tags::filter_webhook_request_data( $entry, array(), $entry, $form );
+
+        $this->assertSame( 'hello', $out['7'] );
+    }
+
+    public function test_filter_webhook_request_data_select_fields_mode_maps_custom_key_to_field_id() {
+        if ( ! function_exists( 'wp_json_encode' ) ) {
+            Functions\when( 'wp_json_encode' )->alias( function ( $v ) { return json_encode( $v ); } );
+        }
+        Functions\when( 'get_option' )->justReturn( 'sec' );
+
+        $field = (object) array( 'id' => 53, 'type' => 'gcs_upload' );
+        $form  = array( 'fields' => array( $field ) );
+        $entry = array( 'id' => 7 );
+        $descriptor = json_encode( array(
+            array( 'object_path' => 'p/53/u/a.png', 'original_name' => 'a.png' ),
+        ) );
+        $request_data = array(
+            'ClaimantType' => 'Customer',
+            'UploadedFiles' => $descriptor,
+        );
+        $feed = array(
+            'meta' => array(
+                'requestBodyType' => 'select_fields',
+                'fieldValues' => array(
+                    array( 'key' => 'gf_custom', 'custom_key' => 'ClaimantType', 'value' => '45' ),
+                    array( 'key' => 'gf_custom', 'custom_key' => 'UploadedFiles', 'value' => '53' ),
+                ),
+            ),
+        );
+
+        $out = \GFGCS_Merge_Tags::filter_webhook_request_data( $request_data, $feed, $entry, $form );
+
+        $this->assertSame( 'Customer', $out['ClaimantType'] );
+        $decoded = json_decode( $out['UploadedFiles'], true );
+        $this->assertIsArray( $decoded );
+        $this->assertCount( 1, $decoded );
+        $this->assertStringContainsString( 'gfgcs/v1/f/7/53/0/', $decoded[0]['object_path'] );
+        $this->assertSame( 'a.png', $decoded[0]['original_name'] );
+    }
+
+    public function test_filter_webhook_request_data_skips_when_value_not_descriptor_json() {
+        Functions\when( 'get_option' )->justReturn( 'sec' );
+
+        $field = (object) array( 'id' => 52, 'type' => 'gcs_upload' );
+        $form  = array( 'fields' => array( $field ) );
+        // Already substituted to URLs (e.g. via select-fields mode that ran replace_variables) — leave it.
+        $entry = array( 'id' => 99, '52' => 'https://example.test/?gfgcs_dl=abc&k=xyz' );
+
+        $out = \GFGCS_Merge_Tags::filter_webhook_request_data( $entry, array(), $entry, $form );
+
+        $this->assertSame( 'https://example.test/?gfgcs_dl=abc&k=xyz', $out['52'] );
+    }
+
     public function test_render_metadata_modifiers() {
         $files = array( array(
             'object_path'   => 'p/4/u/a.jpg',
