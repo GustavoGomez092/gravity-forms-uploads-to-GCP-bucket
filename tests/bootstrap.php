@@ -1,4 +1,15 @@
 <?php
+// Patchwork MUST be loaded before composer's autoloader. PHPUnit discovers test
+// classes from BOTH the unit and integration testsuites at startup, and the
+// integration test file `tests/integration/test-upload-flow.php` has a
+// top-level `require_once .../integration/bootstrap.php` that declares real
+// `wp_remote_get` / `wp_remote_post` / `wp_remote_request` shims. Without
+// Patchwork's stream wrapper already installed, those declarations escape
+// Patchwork's source preprocessor — and any later `Functions\when('wp_remote_*')`
+// in unit tests throws `Patchwork\Exceptions\DefinedTooEarly`. Loading
+// Patchwork.php here puts the stream wrapper in place before any test class
+// (and therefore the integration bootstrap) is autoloaded.
+require_once __DIR__ . '/../vendor/antecedent/patchwork/Patchwork.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 define( 'ABSPATH', __DIR__ . '/' );
