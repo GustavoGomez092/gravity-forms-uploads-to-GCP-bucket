@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  php-test:
+    name: PHPUnit (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.2', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run PHPUnit
+        run: ./vendor/bin/phpunit
+
+  js-test:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npm test
+
+  release:
+    name: Tag + Release on Version bump
+    needs: [php-test, js-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Version from plugin header
+        id: version
+        run: |
+          VERSION=$(grep -oE 'Version: [0-9]+\.[0-9]+\.[0-9]+' gf-gcs-uploads.php | awk '{print $2}')
+          if [ -z "${VERSION}" ]; then
+            echo "::error::Could not extract Version: X.Y.Z from gf-gcs-uploads.php header"
+            exit 1
+          fi
+          echo "Detected version: ${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: tag_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          HTTP_STATUS=$(gh api -i "repos/${{ github.repository }}/git/refs/tags/v${VERSION}" 2>/dev/null | head -1 | awk '{print $2}')
+          case "${HTTP_STATUS}" in
+            200)
+              echo "Tag v${VERSION} already exists — nothing to release."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "Tag v${VERSION} not found — will create it."
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Unexpected status '${HTTP_STATUS}' from GH API when checking for tag v${VERSION}"
+              exit 1
+              ;;
+          esac
+
+      - name: Extract changelog body for this version
+        if: steps.tag_check.outputs.skip == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk -v ver="${VERSION}" '
+            { trimmed = $0; sub(/[[:space:]]+$/, "", trimmed) }
+            trimmed == "= " ver " =" { found=1; next }
+            found && trimmed ~ /^= [0-9]+\.[0-9]+\.[0-9]+ =$/ { exit }
+            found { print }
+          ' readme.txt > /tmp/release-body.md
+          if [ ! -s /tmp/release-body.md ]; then
+            echo "::warning::No changelog block found for v${VERSION} in readme.txt; using placeholder"
+            echo "Release v${VERSION}" > /tmp/release-body.md
+          fi
+          echo "--- release body ---"
+          cat /tmp/release-body.md
+
+      - name: Stage runtime files
+        if: steps.tag_check.outputs.skip == 'false'
+        run: |
+          mkdir -p /tmp/build/gf-gcs-uploads
+          rsync -a --exclude-from=.github/release-exclude.txt ./ /tmp/build/gf-gcs-uploads/
+
+      - name: Build zip
+        if: steps.tag_check.outputs.skip == 'false'
+        run: |
+          cd /tmp/build
+          zip -qr gf-gcs-uploads.zip gf-gcs-uploads/
+          ls -la gf-gcs-uploads.zip
+
+      - name: Configure git identity for tag
+        if: steps.tag_check.outputs.skip == 'false'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Create + push annotated tag
+        if: steps.tag_check.outputs.skip == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          FIRST_LINE=$(head -n 1 /tmp/release-body.md | sed 's/^\* *//')
+          MESSAGE="v${VERSION} — ${FIRST_LINE:-release}"
+          git tag -a "v${VERSION}" -m "${MESSAGE}"
+          if ! git push origin "v${VERSION}" 2>&1; then
+            if git ls-remote --tags origin | grep -q "refs/tags/v${VERSION}$"; then
+              echo "Tag v${VERSION} already exists on remote — concurrent run handled it. Continuing."
+            else
+              echo "::error::git push failed and tag is not present on remote"
+              exit 1
+            fi
+          fi
+
+      - name: Publish GitHub Release
+        if: steps.tag_check.outputs.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          body_path: /tmp/release-body.md
+          files: /tmp/build/gf-gcs-uploads.zip
+          fail_on_unmatched_files: true

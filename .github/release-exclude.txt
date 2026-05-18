@@ -1,0 +1,12 @@
+.git/
+.github/
+.gitignore
+.phpunit.result.cache
+composer.lock
+docs/
+node_modules/
+package.json
+package-lock.json
+phpunit.xml.dist
+tests/
+vendor/
